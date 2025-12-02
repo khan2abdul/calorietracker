@@ -6,7 +6,7 @@ import {
     AlertCircle, Loader2
 } from 'lucide-react';
 import { auth, db } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { THEMES, GRAPH_COLORS, iOSBlurLight, iOSBlurDark, iOSBlurWooden } from './theme';
 import { getTimeBasedMeal, generateHistoryData } from './utils';
@@ -617,7 +617,11 @@ const MainApp = () => {
         const saveStats = async () => {
             try {
                 await setDoc(doc(db, 'users', user.uid), { userStats, theme }, { merge: true });
-            } catch (e) { console.error("Error saving stats", e); }
+                console.log("Stats saved successfully");
+            } catch (e) {
+                console.error("Error saving stats", e);
+                alert("Failed to save data. Please check your connection.");
+            }
         };
         const timeout = setTimeout(saveStats, 1000);
         return () => clearTimeout(timeout);
@@ -759,6 +763,14 @@ const MainApp = () => {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Error signing out:", error);
+        }
+    };
+
     const styles = THEMES[theme];
 
     if (loading) return (
@@ -788,7 +800,7 @@ const MainApp = () => {
                 )}
                 {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} />}
                 {currentView === 'diary' && <DiaryView theme={theme} />}
-                {currentView === 'profile' && <UserProfileView theme={theme} />}
+                {currentView === 'profile' && <UserProfileView theme={theme} user={user} userStats={userStats} onLogout={handleLogout} />}
             </div>
 
             {currentView === 'home' && (
