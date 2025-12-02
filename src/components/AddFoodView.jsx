@@ -130,7 +130,26 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                     {mode === 'search' && type !== 'exercise' && (
                         <div className="flex flex-col gap-6">
                             <div className="relative"><Search className="absolute left-4 top-3.5 text-gray-500" size={20} /><input ref={inputRef} type="text" placeholder="Search database..." className={`w-full py-3.5 pl-12 pr-4 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-lg transition-colors ${inputBg} ${styles.textMain} ${styles.border}`} /></div>
-                            <div className={`text-center ${styles.textSec} mt-10`}><ScanLine size={48} className="mx-auto mb-4 opacity-20" /><p>Start typing or scan a barcode</p></div>
+
+                            <div>
+                                <h3 className={`text-xs font-bold ${styles.textSec} uppercase tracking-widest mb-3`}>Quick Add</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {["Cooked Rice", "Roti", "Paratha", "Dal", "Curd", "Milk", "Tea", "Coffee", "Boiled Egg", "Omelette", "Banana", "Apple", "Chicken Curry", "Paneer", "Dosa"].map(item => (
+                                        <button
+                                            key={item}
+                                            onClick={() => {
+                                                setQuery(item);
+                                                setMode('ai');
+                                            }}
+                                            className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-95 ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5 hover:bg-[#3A3A3C]' : 'bg-white border-gray-200 hover:bg-gray-50'} ${styles.textMain}`}
+                                        >
+                                            {item}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className={`text-center ${styles.textSec} mt-4`}><ScanLine size={48} className="mx-auto mb-4 opacity-20" /><p>Start typing or scan a barcode</p></div>
                         </div>
                     )}
                 </div>

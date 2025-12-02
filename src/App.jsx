@@ -611,6 +611,7 @@ const MainApp = () => {
                 }
             } else {
                 // No user, stop loading
+                setUser(null);
                 setLoading(false);
             }
         });
@@ -817,7 +818,7 @@ const MainApp = () => {
                         onGenerateInsight={generateInsight}
                     />
                 )}
-                {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} />}
+                {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} user={user} />}
                 {currentView === 'diary' && <DiaryView theme={theme} user={user} />}
                 {currentView === 'profile' && <UserProfileView theme={theme} user={user} userStats={userStats} setUserStats={setUserStats} onLogout={handleLogout} />}
             </div>
@@ -830,12 +831,12 @@ const MainApp = () => {
                 )
             }
 
-            <div className={`fixed bottom-0 left-0 right-0 h-24 rounded-t-[2rem] flex justify-around items-start pt-4 z-50 px-2 transition-colors duration-500 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
-                <NavButton active={currentView === 'home'} onClick={() => setCurrentView('home')} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={currentView === 'diary'} onClick={() => setCurrentView('diary')} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={currentView === 'ai'} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={currentView === 'reports'} onClick={() => setCurrentView('reports')} icon={<BarChart2 size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={currentView === 'profile'} onClick={() => setCurrentView('profile')} icon={<User size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
+            <div className={`fixed bottom-0 left-0 right-0 h-24 rounded-t-[2rem] flex justify-around items-start pt-4 z-[70] px-2 transition-colors duration-500 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
+                <NavButton active={currentView === 'home' && !showAddModal.visible} onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
+                <NavButton active={currentView === 'diary' && !showAddModal.visible} onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
+                <NavButton active={showAddModal.visible} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
+                <NavButton active={currentView === 'reports' && !showAddModal.visible} onClick={() => { setCurrentView('reports'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BarChart2 size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
+                <NavButton active={currentView === 'profile' && !showAddModal.visible} onClick={() => { setCurrentView('profile'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<User size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
             </div>
 
             {

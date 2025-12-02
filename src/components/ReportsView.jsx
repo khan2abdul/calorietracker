@@ -1,16 +1,54 @@
-import React, { useState, useMemo } from 'react';
-import { BarChart2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BarChart2, Loader2 } from 'lucide-react';
 import { THEMES } from '../theme';
-import { generateHistoryData } from '../utils';
+import { db } from '../firebase';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import EnergyHistoryGraph from './EnergyHistoryGraph';
 
-const ReportsView = ({ theme }) => {
+const ReportsView = ({ theme, user }) => {
     const [viewType, setViewType] = useState('combined');
     const [range, setRange] = useState('2w');
-    const historyData = useMemo(() => {
-        const days = range === '2w' ? 14 : range === '4w' ? 28 : 56;
-        return generateHistoryData(days);
-    }, [range]);
+    const [historyData, setHistoryData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const days = range === '2w' ? 14 : range === '4w' ? 28 : 56;
+                const q = query(
+                    collection(db, 'users', user.uid, 'daily_logs'),
+                    orderBy('__name__', 'desc'),
+                    limit(days)
+                );
+
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => {
+                    const d = doc.data();
+                    const burned = d.burned || (d.exercises ? d.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0) : 0);
+                    const consumed = d.totals?.cals || 0;
+                    return {
+                        date: new Date(doc.id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                        fullDate: doc.id,
+                        consumed: consumed,
+                        burned: burned,
+                        net: consumed - burned
+                    };
+                });
+
+                // Reverse to show oldest to newest
+                setHistoryData(data.reverse());
+            } catch (error) {
+                console.error("Error fetching report data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [user, range]);
 
     const styles = THEMES[theme];
 
@@ -21,7 +59,18 @@ const ReportsView = ({ theme }) => {
                 <div className={`p-2 rounded-full ${styles.card}`}><BarChart2 size={20} className={styles.textMain} /></div>
             </div>
 
-            <EnergyHistoryGraph data={historyData} theme={theme} viewMode={viewType} />
+            {loading ? (
+                <div className="h-[300px] flex flex-col items-center justify-center opacity-50">
+                    <Loader2 className="animate-spin mb-2" />
+                    <span className="text-xs">Crunching numbers...</span>
+                </div>
+            ) : historyData.length > 0 ? (
+                <EnergyHistoryGraph data={historyData} theme={theme} viewMode={viewType} />
+            ) : (
+                <div className={`h-[300px] flex flex-col items-center justify-center rounded-3xl border ${styles.card} ${styles.border} opacity-60`}>
+                    <p>No data for this period.</p>
+                </div>
+            )}
 
             <div className={`rounded-3xl p-5 ${styles.card} border ${styles.border}`}>
                 {/* SHOW FILTER */}

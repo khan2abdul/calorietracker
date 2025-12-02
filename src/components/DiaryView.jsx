@@ -19,10 +19,19 @@ const DiaryView = ({ theme, user }) => {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({
-                date: doc.id,
-                ...doc.data()
-            }));
+            const data = snapshot.docs.map(doc => {
+                const docData = doc.data();
+                // Calculate total burned from exercises array if not explicitly stored
+                const burned = docData.exercises
+                    ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0)
+                    : (docData.burned || 0);
+
+                return {
+                    date: doc.id,
+                    ...docData,
+                    burned
+                };
+            });
             setHistory(data);
             setLoading(false);
         }, (error) => {
@@ -64,16 +73,12 @@ const DiaryView = ({ theme, user }) => {
         return { streak, totalDays: history.length };
     }, [history]);
 
-    const formatDate = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    };
-
-    const getStatusColor = (cals, goal = 2000) => {
-        const ratio = cals / goal;
-        if (ratio > 1.1) return 'text-red-500';
-        if (ratio > 0.9) return 'text-green-500';
-        return 'text-orange-500';
+    const getVibe = (cals, burned) => {
+        const net = cals - burned;
+        if (burned > 500) return "Main Character Energy 💅";
+        if (cals < 1500) return "Skinny Legend ✨";
+        if (cals > 2500 && burned > 300) return "Bulking Szn 🦍";
+        return "Just Vibing 🌊";
     };
 
     return (
@@ -81,7 +86,7 @@ const DiaryView = ({ theme, user }) => {
             <div className="flex justify-between items-center mb-2">
                 <div>
                     <h1 className={`text-3xl font-extrabold tracking-tight ${styles.textMain}`}>Diary</h1>
-                    <p className={`text-sm font-medium ${styles.textSec} opacity-80`}>Your journey so far</p>
+                    <p className={`text-sm font-medium ${styles.textSec} opacity-80`}>Receipts 🧾</p>
                 </div>
                 <div className={`p-2 rounded-full border ${theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                     <Calendar size={20} className={styles.textSec} />
@@ -96,7 +101,7 @@ const DiaryView = ({ theme, user }) => {
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <Flame size={20} className="text-orange-500 fill-orange-500 animate-pulse" />
-                            <span className={`text-sm font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-orange-400' : 'text-orange-600'}`}>Current Streak</span>
+                            <span className={`text-sm font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-orange-400' : 'text-orange-600'}`}>Streak</span>
                         </div>
                         <h2 className={`text-5xl font-black ${styles.textMain}`}>{stats.streak} <span className="text-lg font-bold opacity-50">days</span></h2>
                     </div>
@@ -111,41 +116,60 @@ const DiaryView = ({ theme, user }) => {
                     ))}
                 </div>
                 <p className={`text-xs mt-3 font-medium ${styles.textSec}`}>
-                    {stats.streak > 3 ? "You're on fire! Keep it up! 🔥" : "Consistency is key. You got this!"}
+                    {stats.streak > 3 ? "No cap, you're crushing it! 🔥" : "Lock in! You got this."}
                 </p>
             </div>
 
             {/* History List */}
             <div className="space-y-4">
-                <h3 className={`text-lg font-bold px-1 ${styles.textMain}`}>Recent Logs</h3>
+                <h3 className={`text-lg font-bold px-1 ${styles.textMain}`}>The Log</h3>
 
                 {loading ? (
-                    <div className="text-center py-10 opacity-50">Loading history...</div>
+                    <div className="text-center py-10 opacity-50">Loading receipts...</div>
                 ) : history.length > 0 ? (
                     <div className="space-y-3">
                         {history.map((day) => (
-                            <div key={day.date} className={`p-4 rounded-2xl border flex items-center justify-between transition-all hover:scale-[1.01] ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
-                                        <span className={`text-[10px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                        <span className={`text-lg font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
+                            <div key={day.date} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                                            <span className={`text-[9px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                            <span className={`text-sm font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
+                                        </div>
+                                        <div>
+                                            <div className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mb-1 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
+                                                {getVibe(day.totals?.cals || 0, day.burned || 0)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-lg font-bold ${styles.textMain}`}>{day.totals?.cals || 0}</span>
-                                            <span className={`text-xs font-medium ${styles.textSec}`}>kcal</span>
-                                        </div>
-                                        <div className="flex gap-2 text-[10px] font-bold opacity-60">
-                                            <span className="text-blue-500">P: {day.totals?.pro || 0}g</span>
-                                            <span className="text-green-500">C: {day.totals?.carb || 0}g</span>
-                                            <span className="text-orange-500">F: {day.totals?.fat || 0}g</span>
-                                        </div>
+                                    <div className={`text-xs font-bold ${styles.textSec}`}>
+                                        {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                     </div>
                                 </div>
 
-                                <div className={`flex flex-col items-end gap-1`}>
-                                    <div className={`px-2 py-1 rounded-full text-[10px] font-bold border ${day.totals?.cals >= 2000 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}`}>
-                                        {day.totals?.cals >= 2000 ? 'Goal Met' : 'Under'}
+                                <div className="grid grid-cols-2 gap-2">
+                                    {/* Eaten */}
+                                    <div className={`p-3 rounded-xl border ${theme === 'dark' ? 'bg-black/20 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                            <span className={`text-[10px] font-bold uppercase ${styles.textSec}`}>Eaten</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className={`text-xl font-black ${styles.textMain}`}>{day.totals?.cals || 0}</span>
+                                            <span className="text-[10px] opacity-60">kcal</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Burned */}
+                                    <div className={`p-3 rounded-xl border ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Flame size={10} className="text-red-500 fill-red-500" />
+                                            <span className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Burned</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className={`text-xl font-black ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>{day.burned || 0}</span>
+                                            <span className={`text-[10px] opacity-60 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>kcal</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -156,8 +180,8 @@ const DiaryView = ({ theme, user }) => {
                         <div className="w-16 h-16 rounded-full bg-gray-100 mx-auto flex items-center justify-center mb-3">
                             <Calendar className="text-gray-400" />
                         </div>
-                        <p className={styles.textSec}>No logs found yet.</p>
-                        <p className="text-xs text-gray-400 mt-1">Start tracking today!</p>
+                        <p className={styles.textSec}>Ghost town here. 👻</p>
+                        <p className="text-xs text-gray-400 mt-1">Log something, bestie!</p>
                     </div>
                 )}
             </div>
