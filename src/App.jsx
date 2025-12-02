@@ -358,7 +358,7 @@ const DashboardView = ({
         <div className="space-y-6 pb-32 animate-fade-in px-6 pt-14">
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className={`text-sm font-semibold uppercase tracking-widest mb-1 ${styles.textSec}`}>Sunday, Nov 30</h2>
+                    <h2 className={`text-sm font-semibold uppercase tracking-widest mb-1 ${styles.textSec}`}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h2>
                     <h1 className={`text-3xl font-extrabold tracking-tight ${styles.textMain}`}>Activity Center</h1>
                 </div>
                 <div className="flex items-center gap-3">
@@ -526,6 +526,8 @@ const DashboardView = ({
 
 const MainApp = () => {
     const [currentView, setCurrentView] = useState('home');
+    const [saveStatus, setSaveStatus] = useState('Idle');
+
     const [showAddModal, setShowAddModal] = useState({ visible: false, type: 'food' });
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedFood, setSelectedFood] = useState(null);
@@ -544,6 +546,8 @@ const MainApp = () => {
     const [user, setUser] = useState(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
 
+
+
     const totals = useMemo(() => {
         return logs.Breakfast.concat(logs.Lunch, logs.Dinner, logs.Snacks).reduce((acc, item) => ({
             cals: acc.cals + (item.calories || 0),
@@ -553,6 +557,8 @@ const MainApp = () => {
         }), { cals: 0, pro: 0, carb: 0, fat: 0 });
     }, [logs]);
 
+
+
     // --- FIREBASE AUTH & SYNC ---
     useEffect(() => {
         if (!auth) {
@@ -561,7 +567,7 @@ const MainApp = () => {
             return;
         }
 
-        const unsubscribe = auth.onAuthStateChanged(async (u) => {
+        const unsubscribe = onAuthStateChanged(auth, async (u) => {
             if (u) {
                 setUser(u);
                 try {
@@ -579,7 +585,7 @@ const MainApp = () => {
                     }
 
                     // Subscribe to Today's Logs
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = new Date().toLocaleDateString('en-CA');
                     const logRef = doc(db, 'users', u.uid, 'daily_logs', today);
 
                     // Realtime listener for logs
@@ -631,15 +637,27 @@ const MainApp = () => {
     useEffect(() => {
         if (!user || loading) return;
         const saveLogs = async () => {
+            setSaveStatus('Saving...');
             try {
-                const today = new Date().toISOString().split('T')[0];
+                // Use local date to match UI
+                const today = new Date().toLocaleDateString('en-CA');
+                const path = `users/${user.uid}/daily_logs/${today}`;
+
+                if (!db) throw new Error("Firestore DB instance is missing");
+
                 await setDoc(doc(db, 'users', user.uid, 'daily_logs', today), {
                     foodLogs: logs,
                     exercises,
                     waterIntake,
                     totals
                 }, { merge: true });
-            } catch (e) { console.error("Error saving logs", e); }
+
+                setSaveStatus(`Saved at ${new Date().toLocaleTimeString()}`);
+            } catch (e) {
+                console.error("Error saving logs", e);
+                setSaveStatus(`Error: ${e.message}`);
+                alert(`Save Failed: ${e.message}`);
+            }
         };
         const timeout = setTimeout(saveLogs, 1000); // Debounce 1s
         return () => clearTimeout(timeout);
@@ -784,6 +802,7 @@ const MainApp = () => {
 
     return (
         <div className={`min-h-screen font-sans mx-auto relative overflow-hidden transition-colors duration-500 ${styles.bg}`}>
+
             <div className="h-full overflow-y-auto custom-scrollbar no-scrollbar">
                 {currentView === 'home' && (
                     <DashboardView
@@ -799,15 +818,17 @@ const MainApp = () => {
                     />
                 )}
                 {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} />}
-                {currentView === 'diary' && <DiaryView theme={theme} />}
-                {currentView === 'profile' && <UserProfileView theme={theme} user={user} userStats={userStats} onLogout={handleLogout} />}
+                {currentView === 'diary' && <DiaryView theme={theme} user={user} />}
+                {currentView === 'profile' && <UserProfileView theme={theme} user={user} userStats={userStats} setUserStats={setUserStats} onLogout={handleLogout} />}
             </div>
 
-            {currentView === 'home' && (
-                <div className="fixed bottom-28 right-6 z-40">
-                    <button onClick={() => openAddModal(null, 'food')} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}><Plus size={32} /></button>
-                </div>
-            )}
+            {
+                currentView === 'home' && (
+                    <div className="fixed bottom-28 right-6 z-40">
+                        <button onClick={() => openAddModal(null, 'food')} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}><Plus size={32} /></button>
+                    </div>
+                )
+            }
 
             <div className={`fixed bottom-0 left-0 right-0 h-24 rounded-t-[2rem] flex justify-around items-start pt-4 z-50 px-2 transition-colors duration-500 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
                 <NavButton active={currentView === 'home'} onClick={() => setCurrentView('home')} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
@@ -817,33 +838,37 @@ const MainApp = () => {
                 <NavButton active={currentView === 'profile'} onClick={() => setCurrentView('profile')} icon={<User size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
             </div>
 
-            {showAddModal.visible && (
-                <AddFoodView
-                    meal={selectedMealForAdd}
-                    type={showAddModal.type}
-                    userStats={userStats}
-                    isDark={theme === 'dark'}
-                    theme={theme}
-                    initialTerm={initialSearchTerm}
-                    editingFood={editingFood}
-                    onClose={handleCloseAddModal}
-                    onAdd={handleAddFood}
-                />
-            )}
+            {
+                showAddModal.visible && (
+                    <AddFoodView
+                        meal={selectedMealForAdd}
+                        type={showAddModal.type}
+                        userStats={userStats}
+                        isDark={theme === 'dark'}
+                        theme={theme}
+                        initialTerm={initialSearchTerm}
+                        editingFood={editingFood}
+                        onClose={handleCloseAddModal}
+                        onAdd={handleAddFood}
+                    />
+                )
+            }
 
-            {showDetailModal && (
-                <FoodDetailModal
-                    food={selectedFood}
-                    isDark={theme === 'dark'}
-                    theme={theme}
-                    onEdit={(f) => handleEditFood(f, f.meal)}
-                    onDelete={(f) => handleDeleteFood(f, f.meal)}
-                    onClose={() => setShowDetailModal(false)}
-                />
-            )}
+            {
+                showDetailModal && (
+                    <FoodDetailModal
+                        food={selectedFood}
+                        isDark={theme === 'dark'}
+                        theme={theme}
+                        onEdit={(f) => handleEditFood(f, f.meal)}
+                        onDelete={(f) => handleDeleteFood(f, f.meal)}
+                        onClose={() => setShowDetailModal(false)}
+                    />
+                )
+            }
 
             {showOnboarding && <OnboardingModal userStats={userStats} onSave={handleOnboardingSave} theme={theme} />}
-        </div>
+        </div >
     );
 };
 
