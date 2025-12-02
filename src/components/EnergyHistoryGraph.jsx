@@ -4,7 +4,7 @@ import { THEMES, GRAPH_COLORS } from '../theme';
 const EnergyHistoryGraph = ({ data, theme, viewMode }) => {
     const height = 220;
     const width = 340;
-    const padding = 20;
+    const padding = 10; // Reduced padding
     const styles = THEMES[theme];
     const colors = GRAPH_COLORS[theme];
 
@@ -14,9 +14,16 @@ const EnergyHistoryGraph = ({ data, theme, viewMode }) => {
     else if (viewMode === 'net') { maxVal = 2000; minVal = -1000; }
 
     const range = maxVal - minVal;
-    const getY = (val) => height - padding - (((val - minVal) / range) * (height - (padding * 2)));
-    const getX = (index) => padding + (index * ((width - (padding * 2)) / (data.length - 1)));
-    const makePath = (key) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d[key])}`).join(' ');
+    const getY = (val) => {
+        const safeVal = isNaN(val) ? 0 : val;
+        return height - padding - (((safeVal - minVal) / range) * (height - (padding * 2)));
+    };
+    // Use full width minus padding
+    const getX = (index) => padding + (index * ((width - (padding * 2)) / (Math.max(1, data.length - 1))));
+    const makePath = (key) => {
+        if (!data || data.length === 0) return "";
+        return data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d[key])}`).join(' ');
+    };
 
     const yLabels = [];
     const steps = 5;

@@ -28,15 +28,15 @@ export const THEMES = {
         navBlur: iOSBlurDark
     },
     wooden: {
-        bg: 'bg-[#EAD8B1]',
-        card: 'bg-[#FFF8DC]',
-        textMain: 'text-[#3E2723]',
-        textSec: 'text-[#8D6E63]',
-        border: 'border-[#8B4513]/20',
-        accentBlue: 'bg-[#5D4037]',
-        accentBlueText: 'text-[#5D4037]',
-        ringTrack: '#EAD8B1',
-        chart: { p: '#6B8E23', c: '#556B2F', f: '#8B4513' },
+        bg: 'bg-[#C19A6B]', // Darker Camel/Wood
+        card: 'bg-[#EADDCA]', // Darker Almond
+        textMain: 'text-[#3E2723]', // Dark Brown
+        textSec: 'text-[#5D4037]', // Medium Brown
+        border: 'border-[#5D4037]/20',
+        accentBlue: 'bg-[#8D6E63]',
+        accentBlueText: 'text-[#8D6E63]',
+        ringTrack: '#C19A6B',
+        chart: { p: '#556B2F', c: '#3E2723', f: '#8B4513' },
         navBlur: iOSBlurWooden
     }
 };

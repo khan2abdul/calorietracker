@@ -24,6 +24,7 @@ export const getTimeBasedMeal = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 11) return 'Breakfast';
     if (hour >= 11 && hour < 16) return 'Lunch';
-    if (hour >= 16 && hour < 22) return 'Dinner';
+    if (hour >= 16 && hour < 18) return 'Snacks';
+    if (hour >= 18 && hour < 22) return 'Dinner';
     return 'Snacks';
 };

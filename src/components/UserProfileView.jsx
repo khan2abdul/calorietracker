@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2, Sparkles } from 'lucide-react';
 import { THEMES } from '../theme';
 import { storage, auth } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -11,6 +11,10 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
     const [uploading, setUploading] = useState(false);
     const [tempStats, setTempStats] = useState(userStats || {});
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     const handleEditClick = () => {
         setTempStats(userStats);
@@ -46,8 +50,20 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
             const photoURL = await getDownloadURL(storageRef);
 
             await updateProfile(auth.currentUser, { photoURL });
-            // Force refresh to update UI
-            window.location.reload();
+
+            // Also save to Firestore
+            const { doc, setDoc, getFirestore } = await import('firebase/firestore');
+            const db = getFirestore();
+            await setDoc(doc(db, 'users', user.uid), { photoURL }, { merge: true });
+
+            // Force UI update by reloading is not ideal, but for now we can rely on React state if we had a setUser. 
+            // Since user comes from prop, we can't easily mutate it. 
+            // However, we can trigger a reload or just let the user see the new image if we use a local state for the image source.
+            // But the user requested "saved in db". We did that.
+            // To show it immediately without reload:
+            const img = document.querySelector('.profile-avatar');
+            if (img) img.src = photoURL;
+
         } catch (error) {
             console.error("Error uploading image:", error);
             alert("Failed to upload image.");
@@ -55,28 +71,6 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
             setUploading(false);
         }
     };
-
-    const StatItem = ({ icon, label, field, value, unit, colorClass }) => (
-        <div className={`p-5 rounded-3xl border flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5 hover:bg-[#2C2C2E]' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm hover:shadow-md')}`}>
-            <div className={`p-3.5 rounded-2xl ${colorClass}`}>
-                {icon}
-            </div>
-            <div className="text-center w-full">
-                {isEditing ? (
-                    <input
-                        type="number"
-                        value={tempStats[field] || ''}
-                        onChange={(e) => handleChange(field, e.target.value)}
-                        className={`w-full text-center text-xl font-bold bg-transparent border-b-2 outline-none ${theme === 'dark' ? 'border-white/20 focus:border-blue-500 text-white' : 'border-gray-200 focus:border-blue-500 text-gray-800'}`}
-                        autoFocus={field === 'age'}
-                    />
-                ) : (
-                    <span className={`text-2xl font-bold block ${styles.textMain}`}>{value || '--'} <span className="text-xs font-medium opacity-60">{unit}</span></span>
-                )}
-                <span className={`text-xs font-medium uppercase tracking-wide opacity-70 ${styles.textSec}`}>{label}</span>
-            </div>
-        </div>
-    );
 
     return (
         <div className="space-y-8 pb-32 animate-fade-in px-6 pt-14 max-w-lg mx-auto">
@@ -111,7 +105,7 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                                 <img
                                     src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'User'}`}
                                     alt="Avatar"
-                                    className="w-full h-full object-cover bg-gray-200"
+                                    className="profile-avatar w-full h-full object-cover bg-gray-200"
                                 />
                             )}
                         </div>
@@ -155,6 +149,11 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                         value={userStats?.age}
                         unit="yrs"
                         colorClass={theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}
+                        isEditing={isEditing}
+                        tempStats={tempStats}
+                        handleChange={handleChange}
+                        theme={theme}
+                        styles={styles}
                     />
                     <StatItem
                         icon={<Weight size={20} />}
@@ -163,6 +162,11 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                         value={userStats?.weight}
                         unit="kg"
                         colorClass={theme === 'dark' ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'}
+                        isEditing={isEditing}
+                        tempStats={tempStats}
+                        handleChange={handleChange}
+                        theme={theme}
+                        styles={styles}
                     />
                     <StatItem
                         icon={<Ruler size={20} />}
@@ -171,6 +175,11 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                         value={userStats?.height}
                         unit="cm"
                         colorClass={theme === 'dark' ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}
+                        isEditing={isEditing}
+                        tempStats={tempStats}
+                        handleChange={handleChange}
+                        theme={theme}
+                        styles={styles}
                     />
                     <StatItem
                         icon={<Target size={20} />}
@@ -179,12 +188,62 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                         value={userStats?.targetWeight}
                         unit="kg"
                         colorClass={theme === 'dark' ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-600'}
+                        isEditing={isEditing}
+                        tempStats={tempStats}
+                        handleChange={handleChange}
+                        theme={theme}
+                        styles={styles}
                     />
                 </div>
             </div>
 
+            {/* Feedback Section */}
+            <div className={`p-6 rounded-[2rem] border ${theme === 'dark' ? 'bg-[#1C1C1E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/30 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-100 text-yellow-600'}`}>
+                        <Sparkles size={18} />
+                    </div>
+                    <div>
+                        <h3 className={`text-lg font-bold ${styles.textMain}`}>Feedback & Suggestions</h3>
+                        <p className={`text-xs ${styles.textSec}`}>Help us improve Calorify.AI</p>
+                    </div>
+                </div>
+                <textarea
+                    className={`w-full p-4 rounded-xl text-sm mb-3 outline-none resize-none transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E] text-white placeholder:text-gray-500' : 'bg-gray-50 text-gray-800 placeholder:text-gray-400'}`}
+                    rows={3}
+                    placeholder="Have an idea or found a bug? Let us know..."
+                    id="feedback-input"
+                />
+                <button
+                    onClick={async () => {
+                        const input = document.getElementById('feedback-input');
+                        const text = input.value.trim();
+                        if (!text) return;
+
+                        try {
+                            const { addDoc, collection, getFirestore } = await import('firebase/firestore');
+                            const db = getFirestore();
+                            await addDoc(collection(db, 'feedback'), {
+                                uid: user.uid,
+                                email: user.email,
+                                text: text,
+                                timestamp: new Date()
+                            });
+                            input.value = '';
+                            alert("Thank you for your feedback!");
+                        } catch (e) {
+                            console.error("Error sending feedback:", e);
+                            alert("Failed to send feedback.");
+                        }
+                    }}
+                    className={`w-full py-3 rounded-xl font-bold text-sm transition-transform active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}
+                >
+                    Submit Feedback
+                </button>
+            </div>
+
             {/* Actions */}
-            <div className="pt-6">
+            <div className="pt-2">
                 <button
                     onClick={onLogout}
                     className={`group w-full py-4 rounded-3xl font-bold flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] ${theme === 'dark' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
@@ -197,10 +256,32 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
             </div>
 
             <div className={`text-center text-xs mt-8 ${styles.textSec} opacity-40 font-medium tracking-widest uppercase`}>
-                FitTrack AI v1.0.0
+                Calorify.AI v1.0.0
             </div>
         </div>
     );
 };
+
+const StatItem = ({ icon, label, field, value, unit, colorClass, isEditing, tempStats, handleChange, theme, styles }) => (
+    <div className={`p-5 rounded-3xl border flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5 hover:bg-[#2C2C2E]' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm hover:shadow-md')}`}>
+        <div className={`p-3.5 rounded-2xl ${colorClass}`}>
+            {icon}
+        </div>
+        <div className="text-center w-full">
+            {isEditing ? (
+                <input
+                    type="number"
+                    value={tempStats[field] || ''}
+                    onChange={(e) => handleChange(field, e.target.value)}
+                    className={`w-full text-center text-xl font-bold bg-transparent border-b-2 outline-none ${theme === 'dark' ? 'border-white/20 focus:border-blue-500 text-white' : 'border-gray-200 focus:border-blue-500 text-gray-800'}`}
+                    autoFocus={field === 'age'}
+                />
+            ) : (
+                <span className={`text-2xl font-bold block ${styles.textMain}`}>{value || '--'} <span className="text-xs font-medium opacity-60">{unit}</span></span>
+            )}
+            <span className={`text-xs font-medium uppercase tracking-wide opacity-70 ${styles.textSec}`}>{label}</span>
+        </div>
+    </div>
+);
 
 export default UserProfileView;

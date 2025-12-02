@@ -15,6 +15,12 @@ const AuthPage = () => {
         setLoading(true);
         setError('');
 
+        if (!auth) {
+            setError("Firebase Auth not initialized. Please refresh or check configuration.");
+            setLoading(false);
+            return;
+        }
+
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, formData.email, formData.password);
@@ -23,14 +29,16 @@ const AuthPage = () => {
                 await updateProfile(userCredential.user, { displayName: formData.name });
             }
         } catch (err) {
-            console.error(err);
+            console.error("Auth Error:", err);
             let msg = "Authentication failed.";
             if (err.code === 'auth/invalid-email') msg = "Invalid email address.";
-            if (err.code === 'auth/user-disabled') msg = "User disabled.";
-            if (err.code === 'auth/user-not-found') msg = "User not found.";
-            if (err.code === 'auth/wrong-password') msg = "Wrong password.";
-            if (err.code === 'auth/email-already-in-use') msg = "Email already in use.";
-            if (err.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
+            else if (err.code === 'auth/user-disabled') msg = "User disabled.";
+            else if (err.code === 'auth/user-not-found') msg = "User not found.";
+            else if (err.code === 'auth/wrong-password') msg = "Wrong password.";
+            else if (err.code === 'auth/email-already-in-use') msg = "Email already in use.";
+            else if (err.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
+            else if (err.code === 'auth/network-request-failed') msg = "Network error. Check your connection.";
+            else msg = `Error: ${err.message} (${err.code || 'unknown'})`;
             setError(msg);
         } finally {
             setLoading(false);

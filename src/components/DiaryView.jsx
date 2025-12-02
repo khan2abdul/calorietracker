@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Calendar, Flame, Trophy, ChevronRight, TrendingUp, Award } from 'lucide-react';
 
-const DiaryView = ({ theme, user }) => {
+const DiaryView = ({ theme, user, onDayClick }) => {
     const styles = THEMES[theme];
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -81,12 +81,19 @@ const DiaryView = ({ theme, user }) => {
         return "Just Vibing 🌊";
     };
 
+    const MacroItem = ({ label, value, color, theme }) => (
+        <div className="flex flex-col items-center">
+            <span className={`text-[10px] font-bold uppercase opacity-60 ${styles.textSec}`}>{label}</span>
+            <span className={`text-sm font-bold ${color}`}>{value}g</span>
+        </div>
+    );
+
     return (
         <div className="space-y-6 pb-32 animate-fade-in px-6 pt-14 max-w-lg mx-auto">
             <div className="flex justify-between items-center mb-2">
                 <div>
                     <h1 className={`text-3xl font-extrabold tracking-tight ${styles.textMain}`}>Diary</h1>
-                    <p className={`text-sm font-medium ${styles.textSec} opacity-80`}>Receipts 🧾</p>
+                    <p className={`text-sm font-medium ${styles.textSec} opacity-80`}>Your Journey 📜</p>
                 </div>
                 <div className={`p-2 rounded-full border ${theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                     <Calendar size={20} className={styles.textSec} />
@@ -116,61 +123,60 @@ const DiaryView = ({ theme, user }) => {
                     ))}
                 </div>
                 <p className={`text-xs mt-3 font-medium ${styles.textSec}`}>
-                    {stats.streak > 3 ? "No cap, you're crushing it! 🔥" : "Lock in! You got this."}
+                    {stats.streak > 3 ? "No cap, you're crushing it! 🔥" : "Consistency is key! 🔑"}
                 </p>
             </div>
 
             {/* History List */}
             <div className="space-y-4">
-                <h3 className={`text-lg font-bold px-1 ${styles.textMain}`}>The Log</h3>
+                <h3 className={`text-lg font-bold px-1 ${styles.textMain}`}>Recent Logs</h3>
 
                 {loading ? (
                     <div className="text-center py-10 opacity-50">Loading receipts...</div>
                 ) : history.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {history.map((day) => (
-                            <div key={day.date} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
-                                <div className="flex justify-between items-start mb-3">
+                            <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-5 rounded-[2rem] border transition-all hover:scale-[1.01] active:scale-95 ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
+                                <div className="flex justify-between items-center mb-4 border-b pb-3 border-dashed border-gray-200/20">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
-                                            <span className={`text-[9px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                            <span className={`text-sm font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
+                                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                                            <span className={`text-[10px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                            <span className={`text-lg font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
                                         </div>
                                         <div>
-                                            <div className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mb-1 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
+                                            <p className={`text-sm font-bold ${styles.textMain}`}>{new Date(day.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
+                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
                                                 {getVibe(day.totals?.cals || 0, day.burned || 0)}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className={`text-xs font-bold ${styles.textSec}`}>
-                                        {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    <div className="text-right">
+                                        <span className={`text-2xl font-black ${styles.textMain}`}>{day.totals?.cals || 0}</span>
+                                        <p className={`text-[10px] font-bold uppercase ${styles.textSec}`}>Calories</p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                    {/* Eaten */}
-                                    <div className={`p-3 rounded-xl border ${theme === 'dark' ? 'bg-black/20 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                            <span className={`text-[10px] font-bold uppercase ${styles.textSec}`}>Eaten</span>
-                                        </div>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className={`text-xl font-black ${styles.textMain}`}>{day.totals?.cals || 0}</span>
-                                            <span className="text-[10px] opacity-60">kcal</span>
-                                        </div>
+                                <div className="grid grid-cols-3 gap-2 mb-4">
+                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase text-blue-500 mb-1`}>Protein</span>
+                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.pro || 0)}g</span>
                                     </div>
+                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase text-green-500 mb-1`}>Carbs</span>
+                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.carb || 0)}g</span>
+                                    </div>
+                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase text-orange-500 mb-1`}>Fat</span>
+                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.fat || 0)}g</span>
+                                    </div>
+                                </div>
 
-                                    {/* Burned */}
-                                    <div className={`p-3 rounded-xl border ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Flame size={10} className="text-red-500 fill-red-500" />
-                                            <span className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Burned</span>
-                                        </div>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className={`text-xl font-black ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>{day.burned || 0}</span>
-                                            <span className={`text-[10px] opacity-60 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>kcal</span>
-                                        </div>
+                                <div className={`flex items-center justify-between pt-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <Flame size={14} className="fill-current" />
+                                        <span className="text-xs font-bold uppercase">Burned</span>
                                     </div>
+                                    <span className="text-sm font-bold">{day.burned || 0} kcal</span>
                                 </div>
                             </div>
                         ))}

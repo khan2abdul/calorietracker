@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Plus, Minus, Activity, TrendingDown, Sparkles, Home, BookOpen,
     BarChart2, User, Sun, Moon, TreeDeciduous, CheckSquare, Square,
     Flame, X, Edit2, Trash2, Mic, ArrowRight, Search, ScanLine,
-    AlertCircle, Loader2
+    AlertCircle, Loader2, ChevronRight, Utensils
 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -66,7 +67,7 @@ const NavButton = ({ active, onClick, icon, isSpecial, theme }) => {
     const specialColor = theme === 'wooden' ? 'text-[#556B2F]' : (theme === 'dark' ? 'text-[#BF5AF2]' : 'text-indigo-500');
 
     return (
-        <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 transition-all duration-300 ${active ? '-translate-y-2' : ''}`}>
+        <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 transition-transform duration-200 active:scale-95`}>
             <div className={`${colorClass} ${active ? 'scale-110 drop-shadow-md' : 'scale-100'} ${isSpecial && active ? specialColor : ''} transition-all`}>
                 {icon}
             </div>
@@ -329,13 +330,42 @@ const DashboardView = ({
     theme, toggleTheme, updateWater, onAddClick, onAddExercise,
     onEditFood, onDeleteFood, onFoodClick, onDeleteBatch,
     selectionState, toggleSelectionMode, toggleItemSelection,
-    onGenerateInsight
+    onGenerateInsight, currentDate, setCurrentDate,
+    onEditExercise, onDeleteExercise
 }) => {
 
     const burned = exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0);
     const styles = THEMES[theme];
     const [insight, setInsight] = useState(null);
     const [loadingInsight, setLoadingInsight] = useState(false);
+    const [swipedExerciseId, setSwipedExerciseId] = useState(null);
+
+    // Touch handlers for swipe
+    const touchStart = useRef(null);
+    const touchEnd = useRef(null);
+
+    const onTouchStart = (e) => {
+        touchEnd.current = null;
+        touchStart.current = e.targetTouches[0].clientX;
+    };
+
+    const onTouchMove = (e) => {
+        touchEnd.current = e.targetTouches[0].clientX;
+    };
+
+    const onTouchEnd = (id) => {
+        if (!touchStart.current || !touchEnd.current) return;
+        const distance = touchStart.current - touchEnd.current;
+        const isLeftSwipe = distance > 50;
+        const isRightSwipe = distance < -50;
+
+        if (isLeftSwipe) {
+            setSwipedExerciseId(id);
+        }
+        if (isRightSwipe) {
+            setSwipedExerciseId(null);
+        }
+    };
 
     const handleInsight = async () => {
         setLoadingInsight(true);
@@ -354,20 +384,31 @@ const DashboardView = ({
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }, [userStats]);
 
+    const changeDate = (days) => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + days);
+        setCurrentDate(newDate);
+    };
+
+    const isToday = new Date().toDateString() === currentDate.toDateString();
+
     return (
         <div className="space-y-6 pb-32 animate-fade-in px-6 pt-14">
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className={`text-sm font-semibold uppercase tracking-widest mb-1 ${styles.textSec}`}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h2>
+                    <div className="flex items-center gap-2 mb-1">
+                        <button onClick={() => changeDate(-1)} className={`p-1 rounded-full hover:bg-gray-200/20 ${styles.textSec}`}><ChevronRight size={16} className="rotate-180" /></button>
+                        <h2 className={`text-sm font-semibold uppercase tracking-widest ${styles.textSec}`}>
+                            {isToday ? "Today" : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </h2>
+                        {!isToday && <button onClick={() => changeDate(1)} className={`p-1 rounded-full hover:bg-gray-200/20 ${styles.textSec}`}><ChevronRight size={16} /></button>}
+                    </div>
                     <h1 className={`text-3xl font-extrabold tracking-tight ${styles.textMain}`}>Activity Center</h1>
                 </div>
                 <div className="flex items-center gap-3">
                     <button onClick={toggleTheme} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors border ${styles.card} ${styles.border} ${styles.textMain}`}>
                         {theme === 'light' ? <Sun size={20} /> : (theme === 'dark' ? <Moon size={20} /> : <TreeDeciduous size={20} />)}
                     </button>
-                    <div className={`w-10 h-10 rounded-full border overflow-hidden ${styles.card} ${styles.border}`}>
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Felix`} alt="User" />
-                    </div>
                 </div>
             </div>
 
@@ -442,30 +483,45 @@ const DashboardView = ({
                         const isSelectionMode = selectionState.meal === meal;
                         return (
                             <div key={meal} className="snap-center min-w-[85vw] md:min-w-[320px]">
-                                <div className={`rounded-[2rem] p-5 h-full border ${styles.card} ${styles.border}`}>
-                                    <div className="flex justify-between items-center mb-4 px-1">
+                                <div className={`rounded-[2.5rem] p-6 h-full border relative overflow-hidden transition-all ${styles.card} ${styles.border}`}>
+                                    <div className="flex justify-between items-center mb-6 relative z-10">
                                         <div className="flex items-center gap-3">
-                                            <h3 className={`text-xl font-bold tracking-tight ${styles.textMain}`}>{meal}</h3>
-                                            <button onClick={() => toggleSelectionMode(meal)} className={`p-1.5 rounded-lg transition-colors ${isSelectionMode ? 'text-blue-500' : styles.textSec}`}><CheckSquare size={18} /></button>
+                                            <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
+                                                <Utensils size={18} />
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-xl font-extrabold tracking-tight ${styles.textMain}`}>{meal}</h3>
+                                                <p className={`text-xs font-medium ${styles.textSec}`}>Log & track</p>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            <button onClick={() => toggleSelectionMode(meal)} className={`p-2 rounded-full transition-colors ${isSelectionMode ? 'bg-blue-500 text-white' : (theme === 'dark' ? 'bg-white/5 text-gray-400' : 'bg-gray-100 text-gray-400')}`}><CheckSquare size={16} /></button>
                                             {isSelectionMode && selectionState.selectedIds.size > 0 ? (
-                                                <button onClick={() => onDeleteBatch(meal)} className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}>Delete ({selectionState.selectedIds.size})</button>
+                                                <button onClick={() => onDeleteBatch(meal)} className={`text-xs font-bold px-3 py-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}>Delete ({selectionState.selectedIds.size})</button>
                                             ) : (
-                                                <span className={`text-sm font-bold px-3 py-1 rounded-full ${theme === 'dark' ? 'bg-[#2C2C2E] text-gray-300 border border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1] text-[#3E2723]' : 'bg-gray-100 text-gray-500')}`}>{mealCals} kcal</span>
+                                                <div className={`px-3 py-1.5 rounded-full font-bold text-sm ${theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                                    {mealCals} <span className="text-[10px] opacity-70">kcal</span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
+
                                     <MealMacroSummary foods={logs[meal]} theme={theme} isDark={theme === 'dark'} />
-                                    <div className="min-h-[100px]">
+
+                                    <div className="min-h-[100px] mt-4">
                                         {logs[meal].length > 0 ? (
-                                            <div className="space-y-1">
+                                            <div className="space-y-2">
                                                 {logs[meal].map((food) => (
                                                     <FoodItem key={food.uid} food={food} theme={theme} isDark={theme === 'dark'} isSelectionMode={isSelectionMode} isSelected={selectionState.selectedIds.has(food.uid)} onClick={onFoodClick} onToggleSelect={toggleItemSelection} />
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-24 text-gray-400 gap-2 border-2 border-dashed border-gray-200/20 rounded-xl"><span className="text-xs italic opacity-50">Empty</span></div>
+                                            <div className={`flex flex-col items-center justify-center h-32 gap-3 border-2 border-dashed rounded-[1.5rem] ${theme === 'dark' ? 'border-white/5' : 'border-gray-200/50'}`}>
+                                                <div className={`p-3 rounded-full ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                                                    <Plus size={20} className={`opacity-40 ${styles.textSec}`} />
+                                                </div>
+                                                <span className={`text-xs font-medium opacity-50 ${styles.textSec}`}>No food logged</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -475,50 +531,160 @@ const DashboardView = ({
                 </div>
             </div>
 
-            <div className={`rounded-[2rem] p-6 border relative overflow-hidden ${styles.card} ${styles.border}`}>
-                <div className="flex justify-between items-end mb-6 relative z-10">
-                    <h3 className={`text-xl font-bold tracking-tight ${styles.textMain}`}>Fitness Hub</h3>
-                    <button onClick={onAddExercise} className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}><Plus size={12} /> Log Activity</button>
-                </div>
-                <div className="grid grid-cols-4 gap-2 mb-6 relative z-10">
-                    {['Age', 'Weight', 'Height', 'Target'].map((label, i) => (
-                        <div key={label} className={`p-2 rounded-2xl flex flex-col items-center gap-1 border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-slate-50 border-slate-100')}`}>
-                            <span className={`text-[9px] uppercase font-bold ${styles.textSec}`}>{label}</span>
-                            <input
-                                type="number"
-                                value={label === 'Age' ? userStats.age : label === 'Weight' ? userStats.weight : label === 'Height' ? userStats.height : userStats.targetWeight}
-                                onChange={(e) => setUserStats({ ...userStats, [label === 'Target' ? 'targetWeight' : label.toLowerCase()]: e.target.value })}
-                                className={`w-full text-center bg-transparent font-bold text-base outline-none ${styles.textMain}`}
-                            />
-                        </div>
-                    ))}
+            {/* --- FITNESS HUB --- */}
+            <div className={`rounded-[2.5rem] p-6 border relative overflow-hidden ${styles.card} ${styles.border}`}>
+                <div className="flex justify-between items-center mb-6 relative z-10">
+                    <div>
+                        <h3 className={`text-2xl font-extrabold tracking-tight flex items-center gap-2 ${styles.textMain}`}>
+                            <Activity className={theme === 'dark' ? 'text-red-500' : 'text-red-600'} />
+                            Fitness Hub
+                        </h3>
+                        <p className={`text-xs font-medium ${styles.textSec} mt-1`}>Track your burn & stats</p>
+                    </div>
+                    <button
+                        onClick={onAddExercise}
+                        className={`group px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all shadow-lg active:scale-95 ${theme === 'dark' ? 'bg-red-600 text-white shadow-red-900/20 hover:bg-red-500' : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'}`}
+                    >
+                        <Plus size={16} strokeWidth={3} /> Log Activity
+                    </button>
                 </div>
 
-                {
-                    userStats.targetWeight && (
-                        <div className={`mb-6 p-4 rounded-xl flex items-center justify-between ${theme === 'dark' ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-100'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-green-500 text-black' : 'bg-green-500 text-white'}`}><TrendingDown size={18} /></div>
-                                <div><p className={`text-xs font-bold uppercase ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>Estimated Date</p><p className={`text-sm font-medium ${styles.textSec}`}>Reach <span className="font-bold">{userStats.targetWeight}kg</span> by</p></div>
-                            </div>
-                            <div className={`text-xl font-bold ${styles.textMain}`}>{estimateDate || '--'}</div>
-                        </div>
-                    )
-                }
 
-                <div className="space-y-2 relative z-10">
-                    {
-                        exercises.length > 0 ? exercises.map((item, i) => (
-                            <div key={i} className={`relative p-3 flex justify-between items-center rounded-xl border ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-slate-50 border-slate-100')}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600'}`}><Activity size={16} /></div>
-                                    <div className="flex flex-col"><span className={`text-sm font-semibold ${styles.textMain}`}>{item.name}</span><span className={`text-[10px] ${styles.textSec}`}>{item.duration}</span></div>
+
+                {/* Burn Summary Card */}
+                <div className={`mb-8 p-5 rounded-[2rem] flex items-center justify-between relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/20' : 'bg-gradient-to-br from-red-50 to-orange-50 border border-red-100'}`}>
+                    <div className="relative z-10">
+                        <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Total Burned</p>
+                        <h4 className={`text-4xl font-black ${styles.textMain}`}>{burned}<span className="text-base font-bold opacity-60 ml-1">kcal</span></h4>
+                    </div>
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center ${theme === 'dark' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-red-500 text-white shadow-lg shadow-red-200'}`}>
+                        <Flame size={32} fill="currentColor" />
+                    </div>
+                </div>
+
+                {/* Activities List */}
+                <div className="space-y-3 relative z-10">
+                    <h4 className={`text-sm font-bold uppercase tracking-wider mb-3 ${styles.textSec}`}>Today's Activities</h4>
+                    {exercises.length > 0 ? (
+                        exercises.map((item, i) => (
+                            <div
+                                key={item.uid || i}
+                                className="relative overflow-hidden rounded-2xl"
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(item.uid)}
+                            >
+                                {/* Actions Background */}
+                                <div className={`absolute inset-0 flex items-center justify-end px-4 gap-2 ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
+                                    <button
+                                        onClick={() => onEditExercise(item)}
+                                        className={`p-2 rounded-full ${theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}
+                                    >
+                                        <Edit2 size={18} />
+                                    </button>
+                                    <button
+                                        onClick={() => onDeleteExercise(item.uid)}
+                                        className={`p-2 rounded-full ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'}`}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
-                                <span className={`text-sm font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.calories}</span>
+
+                                {/* Content Foreground */}
+                                <div
+                                    className={`relative p-4 flex justify-between items-center transition-transform duration-300 border ${theme === 'dark' ? 'bg-[#1C1C1E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-slate-100 shadow-sm')}`}
+                                    style={{ transform: swipedExerciseId === item.uid ? 'translateX(-110px)' : 'translateX(0)' }}
+                                    onClick={() => swipedExerciseId === item.uid && setSwipedExerciseId(null)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${theme === 'dark' ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
+                                            <Activity size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className={`text-base font-bold ${styles.textMain}`}>{item.name}</span>
+                                            <span className={`text-xs font-medium ${styles.textSec}`}>{item.duration}</span>
+                                        </div>
+                                    </div>
+                                    <span className={`text-lg font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.calories}</span>
+                                </div>
                             </div>
-                        )) : <div className="text-center py-6 text-gray-400 text-sm italic">No activities logged today</div>
-                    }
+                        ))
+                    ) : (
+                        <div className={`text-center py-8 rounded-2xl border-2 border-dashed ${theme === 'dark' ? 'border-white/5' : 'border-gray-200'}`}>
+                            <p className={`text-sm font-medium ${styles.textSec}`}>No activities logged yet.</p>
+                            <button onClick={onAddExercise} className="text-xs font-bold text-blue-500 mt-2 hover:underline">Log your first activity</button>
+                        </div>
+                    )}
                 </div>
+
+                {/* Target Date */}
+                {userStats.targetWeight && (
+                    <div className={`mt-6 pt-6 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-200/50'}`}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                                    <TrendingDown size={18} />
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-bold uppercase ${styles.textSec}`}>Estimated Goal Date</p>
+                                    <p className={`text-sm font-medium ${styles.textMain}`}>Reach <span className="font-bold">{userStats.targetWeight}kg</span></p>
+                                </div>
+                            </div>
+                            <div className={`text-lg font-bold ${styles.textMain}`}>{estimateDate || '--'}</div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const EditDayModal = ({ day, theme, onClose, onSave }) => {
+    const styles = THEMES[theme];
+    const [burned, setBurned] = useState(day.burned || 0);
+    const [consumed, setConsumed] = useState(day.totals?.cals || 0);
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 animate-fade-in">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose}></div>
+            <div className={`relative w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl transform transition-all scale-100 border ${styles.card} ${styles.border}`}>
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 className={`text-2xl font-bold ${styles.textMain}`}>Edit Log</h2>
+                        <p className={`font-medium text-sm ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                    <button onClick={onClose} className={`p-2 rounded-full transition-colors ${styles.bg} ${styles.textSec}`}><X size={20} /></button>
+                </div>
+
+                <div className="space-y-4 mb-8">
+                    <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                        <label className={`text-xs font-bold uppercase mb-2 block ${styles.textSec}`}>Consumed (kcal)</label>
+                        <input
+                            type="number"
+                            value={consumed}
+                            onChange={(e) => setConsumed(e.target.value)}
+                            className={`w-full bg-transparent text-3xl font-bold outline-none ${styles.textMain}`}
+                        />
+                        <p className="text-[10px] opacity-50 mt-1">Overriding this will desync from food items.</p>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
+                        <label className={`text-xs font-bold uppercase mb-2 block ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Burned (kcal)</label>
+                        <input
+                            type="number"
+                            value={burned}
+                            onChange={(e) => setBurned(e.target.value)}
+                            className={`w-full bg-transparent text-3xl font-bold outline-none ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}
+                        />
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => onSave(day.date, burned, consumed)}
+                    className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg transition-transform active:scale-95 ${theme === 'dark' ? 'bg-blue-600 shadow-blue-900/20' : 'bg-black shadow-gray-400/20'}`}
+                >
+                    Save Changes
+                </button>
             </div>
         </div>
     );
@@ -527,6 +693,7 @@ const DashboardView = ({
 const MainApp = () => {
     const [currentView, setCurrentView] = useState('home');
     const [saveStatus, setSaveStatus] = useState('Idle');
+    const [currentDate, setCurrentDate] = useState(new Date()); // Date object
 
     const [showAddModal, setShowAddModal] = useState({ visible: false, type: 'food' });
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -546,7 +713,33 @@ const MainApp = () => {
     const [user, setUser] = useState(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
 
+    // Edit Day Modal State (kept for direct edits if needed, but now we redirect to home)
+    const [showEditDayModal, setShowEditDayModal] = useState(false);
 
+    const [selectedDayToEdit, setSelectedDayToEdit] = useState(null);
+
+
+    const handleDayClick = (day) => {
+        // Instead of modal, go to home for that date
+        const [y, m, d] = day.date.split('-');
+        setCurrentDate(new Date(y, m - 1, d));
+        setCurrentView('home');
+    };
+
+    const handleSaveDayEdit = async (dayId, newBurned, newConsumed) => {
+        // ... (keep existing logic if we still use modal for something else, or remove if fully replaced)
+        // For now, I'll keep it but it won't be triggered by handleDayClick anymore
+        try {
+            await setDoc(doc(db, 'users', user.uid, 'daily_logs', dayId), {
+                burned: Number(newBurned),
+                totals: { ...selectedDayToEdit.totals, cals: Number(newConsumed) }
+            }, { merge: true });
+            setShowEditDayModal(false);
+        } catch (e) {
+            console.error("Error updating day:", e);
+            alert("Failed to update.");
+        }
+    };
 
     const totals = useMemo(() => {
         return logs.Breakfast.concat(logs.Lunch, logs.Dinner, logs.Snacks).reduce((acc, item) => ({
@@ -556,8 +749,6 @@ const MainApp = () => {
             fat: acc.fat + (item.fat || 0),
         }), { cals: 0, pro: 0, carb: 0, fat: 0 });
     }, [logs]);
-
-
 
     // --- FIREBASE AUTH & SYNC ---
     useEffect(() => {
@@ -577,46 +768,52 @@ const MainApp = () => {
                     if (userSnap.exists()) {
                         const data = userSnap.data();
                         if (data.userStats) setUserStats(data.userStats);
-                        else setShowOnboarding(true); // User exists but no stats
+                        else setShowOnboarding(true);
                         if (data.theme) setTheme(data.theme);
                     } else {
-                        // New user doc doesn't exist yet
                         setShowOnboarding(true);
                     }
-
-                    // Subscribe to Today's Logs
-                    const today = new Date().toLocaleDateString('en-CA');
-                    const logRef = doc(db, 'users', u.uid, 'daily_logs', today);
-
-                    // Realtime listener for logs
-                    const unsubLogs = onSnapshot(logRef, (doc) => {
-                        if (doc.exists()) {
-                            const data = doc.data();
-                            setLogs(data.foodLogs || { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
-                            setExercises(data.exercises || []);
-                            setWaterIntake(data.waterIntake || 0);
-                        } else {
-                            // Initialize if new day/user
-                            setLogs({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
-                            setExercises([]);
-                            setWaterIntake(0);
-                        }
-                        setLoading(false);
-                    });
-
-                    return () => unsubLogs();
                 } catch (error) {
                     console.error("Error fetching data:", error);
                     setLoading(false);
                 }
             } else {
-                // No user, stop loading
                 setUser(null);
                 setLoading(false);
+                setCurrentView('home');
             }
         });
         return () => unsubscribe();
     }, []);
+
+    // --- SYNC LOGS FOR CURRENT DATE ---
+    useEffect(() => {
+        if (!user) return;
+        setLoading(true);
+
+        // Format date as YYYY-MM-DD in local time
+        const offset = currentDate.getTimezoneOffset();
+        const localDate = new Date(currentDate.getTime() - (offset * 60 * 1000));
+        const dateStr = localDate.toISOString().split('T')[0];
+
+        const logRef = doc(db, 'users', user.uid, 'daily_logs', dateStr);
+
+        const unsubLogs = onSnapshot(logRef, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                setLogs(data.foodLogs || { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+                setExercises(data.exercises || []);
+                setWaterIntake(data.waterIntake || 0);
+            } else {
+                setLogs({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+                setExercises([]);
+                setWaterIntake(0);
+            }
+            setLoading(false);
+        });
+
+        return () => unsubLogs();
+    }, [user, currentDate]);
 
     // --- AUTO-SAVE USER STATS & THEME ---
     useEffect(() => {
@@ -640,13 +837,14 @@ const MainApp = () => {
         const saveLogs = async () => {
             setSaveStatus('Saving...');
             try {
-                // Use local date to match UI
-                const today = new Date().toLocaleDateString('en-CA');
-                const path = `users/${user.uid}/daily_logs/${today}`;
+                // Use currentDate for saving
+                const offset = currentDate.getTimezoneOffset();
+                const localDate = new Date(currentDate.getTime() - (offset * 60 * 1000));
+                const dateStr = localDate.toISOString().split('T')[0];
 
                 if (!db) throw new Error("Firestore DB instance is missing");
 
-                await setDoc(doc(db, 'users', user.uid, 'daily_logs', today), {
+                await setDoc(doc(db, 'users', user.uid, 'daily_logs', dateStr), {
                     foodLogs: logs,
                     exercises,
                     waterIntake,
@@ -662,7 +860,7 @@ const MainApp = () => {
         };
         const timeout = setTimeout(saveLogs, 1000); // Debounce 1s
         return () => clearTimeout(timeout);
-    }, [logs, exercises, waterIntake, totals, user, loading]);
+    }, [logs, exercises, waterIntake, totals, user, loading, currentDate]);
 
     // Calculate dynamic goal on stats change
     useEffect(() => {
@@ -678,7 +876,13 @@ const MainApp = () => {
 
     const handleAddFood = (item, mealOrType) => {
         if (mealOrType === 'exercise') {
-            setExercises(prev => [...prev, item]);
+            if (editingFood) {
+                // Update existing exercise
+                setExercises(prev => prev.map(ex => ex.uid === editingFood.uid ? { ...item, uid: editingFood.uid } : ex));
+            } else {
+                // Add new exercise
+                setExercises(prev => [...prev, { ...item, uid: Date.now().toString() + Math.random() }]);
+            }
         } else {
             const newFood = { ...item, uid: Date.now().toString() + Math.random(), meal: mealOrType };
             setLogs(prev => {
@@ -715,6 +919,18 @@ const MainApp = () => {
         setLogs(prev => ({ ...prev, [meal]: prev[meal].filter(f => !selectionState.selectedIds.has(f.uid)) }));
         setSelectionState({ meal: null, selectedIds: new Set() });
     };
+
+    const handleEditExercise = (exercise) => {
+        setInitialSearchTerm(exercise.name);
+        setEditingFood(exercise); // Reuse editingFood for exercise
+        setShowAddModal({ visible: true, type: 'exercise' });
+    };
+
+    const handleDeleteExercise = (exerciseId) => {
+        setExercises(prev => prev.filter(ex => ex.uid !== exerciseId));
+    };
+
+
 
     const toggleSelectionMode = (meal) => {
         if (selectionState.meal === meal) setSelectionState({ meal: null, selectedIds: new Set() });
@@ -802,9 +1018,9 @@ const MainApp = () => {
     if (!user) return <AuthPage />;
 
     return (
-        <div className={`min-h-screen font-sans mx-auto relative overflow-hidden transition-colors duration-500 ${styles.bg}`}>
+        <div className={`fixed inset-0 h-[100dvh] w-full font-sans mx-auto overflow-hidden transition-colors duration-500 ${styles.bg}`}>
 
-            <div className="h-full overflow-y-auto custom-scrollbar no-scrollbar">
+            <div className="h-full overflow-y-auto custom-scrollbar no-scrollbar pb-24">
                 {currentView === 'home' && (
                     <DashboardView
                         logs={logs} exercises={exercises} userStats={userStats} setUserStats={setUserStats}
@@ -816,10 +1032,14 @@ const MainApp = () => {
                         onDeleteBatch={handleBatchDelete} selectionState={selectionState}
                         toggleSelectionMode={toggleSelectionMode} toggleItemSelection={toggleItemSelection}
                         onGenerateInsight={generateInsight}
+                        currentDate={currentDate}
+                        setCurrentDate={setCurrentDate}
+                        onEditExercise={handleEditExercise}
+                        onDeleteExercise={handleDeleteExercise}
                     />
                 )}
                 {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} user={user} />}
-                {currentView === 'diary' && <DiaryView theme={theme} user={user} />}
+                {currentView === 'diary' && <DiaryView theme={theme} user={user} onDayClick={handleDayClick} />}
                 {currentView === 'profile' && <UserProfileView theme={theme} user={user} userStats={userStats} setUserStats={setUserStats} onLogout={handleLogout} />}
             </div>
 
@@ -831,7 +1051,7 @@ const MainApp = () => {
                 )
             }
 
-            <div className={`fixed bottom-0 left-0 right-0 h-24 rounded-t-[2rem] flex justify-around items-start pt-4 z-[70] px-2 transition-colors duration-500 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
+            <div className={`fixed bottom-0 left-0 right-0 h-20 rounded-t-[2rem] flex justify-around items-start pt-2 z-[70] px-2 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
                 <NavButton active={currentView === 'home' && !showAddModal.visible} onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={currentView === 'diary' && !showAddModal.visible} onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={showAddModal.visible} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
@@ -867,6 +1087,15 @@ const MainApp = () => {
                     />
                 )
             }
+
+            {showEditDayModal && (
+                <EditDayModal
+                    day={selectedDayToEdit}
+                    theme={theme}
+                    onClose={() => setShowEditDayModal(false)}
+                    onSave={handleSaveDayEdit}
+                />
+            )}
 
             {showOnboarding && <OnboardingModal userStats={userStats} onSave={handleOnboardingSave} theme={theme} />}
         </div >

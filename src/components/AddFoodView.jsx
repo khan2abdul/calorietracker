@@ -17,7 +17,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
 
     useEffect(() => {
         if (type === 'exercise') setMode('ai');
-        if (inputRef.current) inputRef.current.focus();
+        // if (inputRef.current) inputRef.current.focus(); // Removed auto-focus
     }, [mode, type]);
 
     const handleAISubmit = async () => {
