@@ -1,100 +1,24 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-    Plus, Minus, Search, Home, BookOpen, BarChart2, User, Droplet,
-    Sparkles, X, ScanLine, Mic, ArrowRight, Moon, Sun, Trash2, Edit2,
-    Flame, CheckSquare, Square, AlertCircle, Activity, TrendingDown,
-    ChevronDown, Calendar, Settings, TreeDeciduous
+    Plus, Minus, Activity, TrendingDown, Sparkles, Home, BookOpen,
+    BarChart2, User, Sun, Moon, TreeDeciduous, CheckSquare, Square,
+    Flame, X, Edit2, Trash2, Mic, ArrowRight, Search, ScanLine,
+    AlertCircle, Loader2
 } from 'lucide-react';
+import { auth, db } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { THEMES, GRAPH_COLORS, iOSBlurLight, iOSBlurDark, iOSBlurWooden } from './theme';
+import { getTimeBasedMeal, generateHistoryData } from './utils';
 
-// ==========================================
-// 1. CONFIG & CONSTANTS
-// ==========================================
+import AuthPage from './components/AuthPage';
+import ReportsView from './components/ReportsView';
+import DiaryView from './components/DiaryView';
+import UserProfileView from './components/UserProfileView';
+import AddFoodView from './components/AddFoodView';
+import OnboardingModal from './components/OnboardingModal';
 
-// API Key Configuration
-// For local development, create a .env file and add: VITE_GEMINI_API_KEY=your_key_here
-// In this preview environment, we leave it empty to let the system handle it.
-const apiKey = "";
-
-// --- CRITICAL STYLES ---
-const iOSBlurLight = "backdrop-blur-xl bg-white/80 border border-white/20 shadow-sm";
-const iOSBlurDark = "backdrop-blur-xl bg-[#1C1C1E]/90 border-t border-white/10 shadow-[0_-10px_40px_-15px_rgba(255,255,255,0.05)]";
-const iOSBlurWooden = "backdrop-blur-xl bg-[#EAD8B1]/90 border-t border-[#8B4513]/20 shadow-sm";
-
-const THEMES = {
-    light: {
-        bg: 'bg-[#F2F2F7]',
-        card: 'bg-white',
-        textMain: 'text-slate-900',
-        textSec: 'text-gray-500',
-        border: 'border-slate-100',
-        accentBlue: 'bg-blue-500',
-        accentBlueText: 'text-blue-600',
-        ringTrack: '#F2F2F7',
-        chart: { p: '#3b82f6', c: '#10b981', f: '#f97316' },
-        navBlur: iOSBlurLight
-    },
-    dark: {
-        bg: 'bg-[#000000]',
-        card: 'bg-[#1C1C1E]',
-        textMain: 'text-white',
-        textSec: 'text-gray-400',
-        border: 'border-white/10',
-        accentBlue: 'bg-[#0A84FF]',
-        accentBlueText: 'text-[#0A84FF]',
-        ringTrack: '#2C2C2E',
-        chart: { p: '#0A84FF', c: '#32D74B', f: '#FF9F0A' },
-        navBlur: iOSBlurDark
-    },
-    wooden: {
-        bg: 'bg-[#EAD8B1]',
-        card: 'bg-[#FFF8DC]',
-        textMain: 'text-[#3E2723]',
-        textSec: 'text-[#8D6E63]',
-        border: 'border-[#8B4513]/20',
-        accentBlue: 'bg-[#5D4037]',
-        accentBlueText: 'text-[#5D4037]',
-        ringTrack: '#EAD8B1',
-        chart: { p: '#6B8E23', c: '#556B2F', f: '#8B4513' },
-        navBlur: iOSBlurWooden
-    }
-};
-
-const GRAPH_COLORS = {
-    light: { consumed: '#22D3EE', burned: '#A855F7', net: '#4ADE80' },
-    dark: { consumed: '#22D3EE', burned: '#BF5AF2', net: '#32D74B' },
-    wooden: { consumed: '#6B8E23', burned: '#8B4513', net: '#556B2F' }
-};
-
-// --- Helpers ---
-const getTimeBasedMeal = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 11) return 'Breakfast';
-    if (hour >= 11 && hour < 16) return 'Lunch';
-    if (hour >= 16 && hour < 22) return 'Dinner';
-    return 'Snacks';
-};
-
-const generateHistoryData = (days) => {
-    const data = [];
-    const today = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-
-        // Simulate data
-        const consumed = Math.floor(1800 + Math.random() * 800);
-        const burned = Math.floor(300 + Math.random() * 1000);
-
-        data.push({
-            dateObj: d,
-            date: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
-            consumed: consumed,
-            burned: burned,
-            net: consumed - burned
-        });
-    }
-    return data;
-};
+const geminiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component {
@@ -248,64 +172,8 @@ const MacroPill = ({ label, value, max, theme }) => {
     );
 };
 
-// ==========================================
-// 3. CHART & COMPLEX COMPONENTS
-// ==========================================
-
-const EnergyHistoryGraph = ({ data, theme, viewMode }) => {
-    const height = 220;
-    const width = 340;
-    const padding = 20;
-    const styles = THEMES[theme];
-    const colors = GRAPH_COLORS[theme];
-
-    let maxVal = 3000;
-    let minVal = -500;
-    if (viewMode === 'burned') { maxVal = 1500; minVal = 0; }
-    else if (viewMode === 'net') { maxVal = 2000; minVal = -1000; }
-
-    const range = maxVal - minVal;
-    const getY = (val) => height - padding - (((val - minVal) / range) * (height - (padding * 2)));
-    const getX = (index) => padding + (index * ((width - (padding * 2)) / (data.length - 1)));
-    const makePath = (key) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d[key])}`).join(' ');
-
-    const yLabels = [];
-    const steps = 5;
-    for (let i = 0; i <= steps; i++) yLabels.push(minVal + (range * (i / steps)));
-
-    return (
-        <div className={`w-full p-4 rounded-3xl ${styles.card} border ${styles.border}`}>
-            <div className="flex justify-between items-center mb-6">
-                <h3 className={`font-bold ${styles.textMain}`}>Energy History <span className="text-xs font-normal opacity-60">(kcal)</span></h3>
-            </div>
-            <div className="relative h-[220px] w-full">
-                {yLabels.map((val, i) => (
-                    <div key={i} className="absolute w-full flex items-center" style={{ top: getY(val) }}>
-                        <span className={`text-[9px] w-8 text-right pr-2 ${styles.textSec}`}>{val >= 1000 ? (val / 1000).toFixed(1) + 'K' : Math.round(val)}</span>
-                        <div className={`flex-1 h-px ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/20'}`}></div>
-                    </div>
-                ))}
-                <svg height={height} width="100%" viewBox={`0 0 ${width} ${height}`} className="absolute top-0 left-0 overflow-visible pl-8">
-                    {(viewMode === 'combined' || viewMode === 'consumed') && <path d={makePath('consumed')} fill="none" stroke={colors.consumed} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-                    {(viewMode === 'combined' || viewMode === 'burned') && <path d={makePath('burned')} fill="none" stroke={colors.burned} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-                    {(viewMode === 'combined' || viewMode === 'net') && <path d={makePath('net')} fill="none" stroke={colors.net} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-                </svg>
-                <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] pt-2 ${styles.textSec}`}>
-                    <span>{data[0].date}</span>
-                    <span>{data[data.length - 1].date}</span>
-                </div>
-            </div>
-            <div className="flex justify-center gap-6 mt-4 flex-wrap">
-                {(viewMode === 'combined' || viewMode === 'consumed') && <div className="flex items-center gap-2"><div className="w-3 h-1 rounded-full" style={{ background: colors.consumed }}></div><span className={`text-xs ${styles.textSec}`}>Consumed</span></div>}
-                {(viewMode === 'combined' || viewMode === 'burned') && <div className="flex items-center gap-2"><div className="w-3 h-1 rounded-full" style={{ background: colors.burned }}></div><span className={`text-xs ${styles.textSec}`}>Burned</span></div>}
-                {(viewMode === 'combined' || viewMode === 'net') && <div className="flex items-center gap-2"><div className="w-3 h-1 rounded-full" style={{ background: colors.net }}></div><span className={`text-xs ${styles.textSec}`}>Net</span></div>}
-            </div>
-        </div>
-    );
-};
-
 const MacroDonutChart = ({ protein, carbs, fat, size = 160, theme }) => {
-    const p = protein || 0; c = carbs || 0; f = fat || 0;
+    const p = protein || 0; const c = carbs || 0; const f = fat || 0;
     const total = p + c + f || 1;
     const radius = (size - 20) / 2;
     const circumference = radius * 2 * Math.PI;
@@ -424,10 +292,6 @@ const FoodItem = ({ food, theme, isSelectionMode, isSelected, onClick, onToggleS
     );
 };
 
-// ==========================================
-// 5. MODALS
-// ==========================================
-
 const FoodDetailModal = ({ food, theme, onClose, onEdit, onDelete }) => {
     if (!food) return null;
     const styles = THEMES[theme];
@@ -454,202 +318,6 @@ const FoodDetailModal = ({ food, theme, onClose, onEdit, onDelete }) => {
                 <div className="flex gap-3">
                     <button onClick={() => { onEdit(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-slate-700'}`}><Edit2 size={18} /> Edit</button>
                     <button onClick={() => { onDelete(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#FF453A]/10 text-[#FF453A]' : 'bg-red-50 text-red-600'}`}><Trash2 size={18} /> Delete</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SmartAddModal = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm, editingFood }) => {
-    const [activeMeal, setActiveMeal] = useState(meal || 'Snacks');
-    const [mode, setMode] = useState(type === 'exercise' || initialTerm ? 'ai' : 'search');
-    const [query, setQuery] = useState(initialTerm || '');
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [aiResult, setAiResult] = useState(null);
-    const [error, setError] = useState('');
-    const inputRef = useRef(null);
-    const MEAL_OPTIONS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
-    const styles = THEMES[theme];
-
-    useEffect(() => {
-        if (type === 'exercise') setMode('ai');
-        if (inputRef.current) inputRef.current.focus();
-    }, [mode, type]);
-
-    const handleAISubmit = async () => {
-        if (!query.trim()) return;
-        setIsAnalyzing(true);
-        setError('');
-        setAiResult(null);
-        let prompt = "";
-        if (type === 'exercise') {
-            prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array. Example: [{"name": "Running", "duration": "30 mins", "calories": 300}].`;
-        } else {
-            prompt = `Analyze this meal description: "${query}". Identify food items, estimate calories, protein (g), carbs (g), fat (g), and approximate weight. Return ONLY a valid JSON array. Example: [{"name": "Apple", "weight": "180g", "calories": 95, "protein": 0.5, "carbs": 25, "fat": 0.3}].`;
-        }
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            const data = await response.json();
-            if (!data.candidates || data.candidates.length === 0) throw new Error("No response");
-            const text = data.candidates[0].content.parts[0].text;
-            const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(jsonString);
-            if (Array.isArray(parsed)) setAiResult(parsed);
-            else setError("Could not understand.");
-        } catch (err) {
-            console.error(err);
-            setError("AI Service unavailable.");
-            setTimeout(() => {
-                if (type === 'exercise') { setAiResult([{ name: "AI Estimate: " + query, duration: "30 mins", calories: 250 }]); }
-                else { setAiResult([{ name: query, weight: "200g", calories: 450, protein: 20, carbs: 50, fat: 15 }]); }
-                setIsAnalyzing(false);
-                setError('');
-            }, 800);
-        } finally { setIsAnalyzing(false); }
-    };
-
-    // Styles
-    const modalBg = theme === 'dark' ? 'bg-[#000000]' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-[#F2F2F7]');
-    const headerBg = styles.card;
-    const inputBg = theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-white';
-
-    return (
-        <div className={`fixed inset-0 z-[60] flex flex-col animate-slide-up ${modalBg}`}>
-            <div className={`px-6 pt-12 pb-4 shadow-sm z-10 ${headerBg} transition-colors`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex flex-col">
-                        <span className={`text-xs font-bold uppercase tracking-widest ${styles.textSec}`}>{type === 'exercise' ? 'Log Activity' : (editingFood ? 'Edit Item' : 'Add Food')}</span>
-                        <h2 className={`text-2xl font-bold ${styles.textMain}`}>{type === 'exercise' ? 'New Workout' : (editingFood ? 'Update Entry' : 'New Entry')}</h2>
-                    </div>
-                    <button onClick={onClose} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'} ${styles.textSec}`}><X size={24} /></button>
-                </div>
-                {type !== 'exercise' && (
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        {MEAL_OPTIONS.map(m => (
-                            <button key={m} onClick={() => setActiveMeal(m)} className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap ${activeMeal === m ? (theme === 'dark' ? 'bg-white text-black' : (theme === 'wooden' ? 'bg-[#3E2723] text-[#EAD8B1]' : 'bg-black text-white')) : (theme === 'dark' ? 'bg-[#2C2C2E] text-gray-400' : 'bg-gray-200 text-gray-500')}`}>{m}</button>
-                        ))}
-                    </div>
-                )}
-            </div>
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                {type !== 'exercise' && (
-                    <div className="p-4 shrink-0">
-                        <div className={`p-1 rounded-2xl flex relative ${theme === 'dark' ? 'bg-[#1C1C1E]' : (theme === 'wooden' ? 'bg-[#D7CCC8]' : 'bg-gray-200/50')}`}>
-                            <div className={`absolute top-1 bottom-1 w-[48%] rounded-xl shadow-sm transition-all duration-300 ${mode === 'ai' ? 'left-[50%]' : 'left-1'} ${theme === 'dark' ? 'bg-[#636366]/40' : 'bg-white'}`} />
-                            <button onClick={() => setMode('search')} className={`flex-1 py-2.5 text-sm font-semibold relative z-10 transition-colors ${mode === 'search' ? styles.textMain : styles.textSec}`}>Search</button>
-                            <button onClick={() => setMode('ai')} className={`flex-1 py-2.5 text-sm font-semibold relative z-10 flex items-center justify-center gap-2 transition-colors ${mode === 'ai' ? styles.textMain : styles.textSec}`}><Sparkles size={14} className={mode === 'ai' ? (theme === 'dark' ? "text-[#BF5AF2]" : "text-indigo-500") : ""} /> AI Log</button>
-                        </div>
-                    </div>
-                )}
-                {mode === 'ai' && (
-                    <div className="flex-1 flex flex-col px-6 min-h-0 pt-4">
-                        <div className={`shrink-0 p-6 rounded-[2rem] shadow-sm mb-6 relative overflow-hidden transition-colors border ${styles.card} ${styles.border}`}>
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><Sparkles size={100} className={styles.textMain} /></div>
-                            <label className={`block text-sm font-bold mb-2 ${styles.textSec}`}>{type === 'exercise' ? 'Describe your workout' : 'Describe your meal'}</label>
-                            <textarea ref={inputRef} className={`w-full text-lg placeholder:text-gray-400 outline-none resize-none bg-transparent ${styles.textMain}`} rows={3} placeholder={type === 'exercise' ? "e.g. 30 mins jogging..." : "e.g. A cheeseburger..."} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAISubmit(); } }} />
-                            <div className="flex justify-between items-center mt-4">
-                                <button className={`p-2 rounded-full transition-colors ${styles.textSec} hover:opacity-80`}><Mic size={20} /></button>
-                                <button onClick={handleAISubmit} disabled={!query || isAnalyzing} className={`px-6 py-3 rounded-full font-bold text-white transition-all flex items-center gap-2 ${!query ? 'bg-gray-400' : (theme === 'dark' ? 'bg-[#0A84FF]' : (theme === 'wooden' ? 'bg-[#8B4513]' : 'bg-black'))}`}>{isAnalyzing ? 'Thinking...' : <>Analyze <ArrowRight size={18} strokeWidth={2.5} /></>}</button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto pb-20 min-h-0">
-                            {error && <div className="p-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-sm mb-4">{error}</div>}
-                            {aiResult && (
-                                <div className="animate-fade-in space-y-3">
-                                    <h3 className={`text-sm font-bold ${styles.textSec} uppercase tracking-widest ml-2 mb-2`}>AI Suggestions</h3>
-                                    {aiResult.map((item, idx) => (
-                                        <div key={idx} className={`p-4 rounded-2xl flex justify-between items-center shadow-sm border transition-colors ${styles.card} ${styles.border}`}>
-                                            <div>
-                                                <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
-                                                <p className={`text-xs ${styles.textSec} font-medium mt-1`}>
-                                                    {type === 'exercise' ? <span className="text-blue-500">{item.duration}</span> : <>{item.weight && <span className={`font-bold mr-2 ${styles.accentBlueText}`}>{item.weight}</span>}</>}
-                                                    <span className={theme === 'dark' ? 'text-green-400' : 'text-emerald-600'}> {item.calories} {type === 'exercise' ? 'burned' : 'kcal'}</span>
-                                                </p>
-                                            </div>
-                                            <button onClick={() => onAdd(item, type === 'exercise' ? 'exercise' : activeMeal)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-indigo-50'} ${styles.accentBlueText}`}><Plus size={20} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-                {mode === 'search' && type !== 'exercise' && (
-                    <div className="flex-1 flex flex-col px-6 min-h-0">
-                        <div className="relative mb-6 shrink-0"><Search className="absolute left-4 top-3.5 text-gray-500" size={20} /><input ref={inputRef} type="text" placeholder="Search database..." className={`w-full py-3.5 pl-12 pr-4 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-lg transition-colors ${inputBg} ${styles.textMain} ${styles.border}`} /></div>
-                        <div className={`flex-1 overflow-y-auto min-h-0 text-center ${styles.textSec} mt-10`}><ScanLine size={48} className="mx-auto mb-4 opacity-20" /><p>Start typing or scan a barcode</p></div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-// ==========================================
-// 6. VIEWS
-// ==========================================
-
-const ReportsView = ({ theme }) => {
-    const [viewType, setViewType] = useState('combined');
-    const [range, setRange] = useState('2w');
-    const historyData = useMemo(() => {
-        const days = range === '2w' ? 14 : range === '4w' ? 28 : 56;
-        return generateHistoryData(days);
-    }, [range]);
-
-    const styles = THEMES[theme];
-
-    return (
-        <div className="space-y-6 pb-32 animate-fade-in px-4 pt-14">
-            <div className="flex justify-between items-center mb-4">
-                <h1 className={`text-2xl font-bold ${styles.textMain}`}>Energy Reports</h1>
-                <div className={`p-2 rounded-full ${styles.card}`}><BarChart2 size={20} className={styles.textMain} /></div>
-            </div>
-
-            <EnergyHistoryGraph data={historyData} theme={theme} viewMode={viewType} />
-
-            <div className={`rounded-3xl p-5 ${styles.card} border ${styles.border}`}>
-                {/* SHOW FILTER */}
-                <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-700/20">
-                    <span className={`font-semibold ${styles.textMain}`}>Show</span>
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                        {['combined', 'consumed', 'burned', 'net'].map(t => (
-                            <button
-                                key={t}
-                                onClick={() => setViewType(t)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold capitalize transition-colors 
-                        ${viewType === t
-                                        ? (theme === 'dark' ? 'bg-white text-black' : (theme === 'wooden' ? 'bg-[#3E2723] text-[#EAD8B1]' : 'bg-black text-white'))
-                                        : (theme === 'dark' ? 'bg-[#2C2C2E] text-gray-400' : 'bg-gray-100 text-gray-500')}
-                      `}
-                            >
-                                {t}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                {/* DATE RANGE FILTER */}
-                <div className="flex justify-between items-center">
-                    <span className={`font-semibold ${styles.textMain}`}>Date Range</span>
-                    <div className="flex gap-2">
-                        {['2w', '4w', '8w'].map(r => (
-                            <button
-                                key={r}
-                                onClick={() => setRange(r)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors 
-                        ${range === r
-                                        ? (theme === 'dark' ? 'bg-blue-600 text-white' : (theme === 'wooden' ? 'bg-[#8B4513] text-white' : 'bg-blue-500 text-white'))
-                                        : (theme === 'dark' ? 'bg-[#2C2C2E] text-gray-400' : 'bg-gray-100 text-gray-500')}
-                      `}
-                            >
-                                {r === '2w' ? '2 Weeks' : r === '4w' ? '4 Weeks' : '8 Weeks'}
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </div>
         </div>
@@ -825,34 +493,36 @@ const DashboardView = ({
                         </div>
                     ))}
                 </div>
-                {userStats.targetWeight && (
-                    <div className={`mb-6 p-4 rounded-xl flex items-center justify-between ${theme === 'dark' ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-100'}`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-green-500 text-black' : 'bg-green-500 text-white'}`}><TrendingDown size={18} /></div>
-                            <div><p className={`text-xs font-bold uppercase ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>Estimated Date</p><p className={`text-sm font-medium ${styles.textSec}`}>Reach <span className="font-bold">{userStats.targetWeight}kg</span> by</p></div>
-                        </div>
-                        <div className={`text-xl font-bold ${styles.textMain}`}>{estimateDate || '--'}</div>
-                    </div>
-                )}
-                <div className="space-y-2 relative z-10">
-                    {exercises.length > 0 ? exercises.map((item, i) => (
-                        <div key={i} className={`relative p-3 flex justify-between items-center rounded-xl border ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-slate-50 border-slate-100')}`}>
+
+                {
+                    userStats.targetWeight && (
+                        <div className={`mb-6 p-4 rounded-xl flex items-center justify-between ${theme === 'dark' ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-100'}`}>
                             <div className="flex items-center gap-3">
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600'}`}><Activity size={16} /></div>
-                                <div className="flex flex-col"><span className={`text-sm font-semibold ${styles.textMain}`}>{item.name}</span><span className={`text-[10px] ${styles.textSec}`}>{item.duration}</span></div>
+                                <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-green-500 text-black' : 'bg-green-500 text-white'}`}><TrendingDown size={18} /></div>
+                                <div><p className={`text-xs font-bold uppercase ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>Estimated Date</p><p className={`text-sm font-medium ${styles.textSec}`}>Reach <span className="font-bold">{userStats.targetWeight}kg</span> by</p></div>
                             </div>
-                            <span className={`text-sm font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.calories}</span>
+                            <div className={`text-xl font-bold ${styles.textMain}`}>{estimateDate || '--'}</div>
                         </div>
-                    )) : <div className="text-center py-6 text-gray-400 text-sm italic">No activities logged today</div>}
+                    )
+                }
+
+                <div className="space-y-2 relative z-10">
+                    {
+                        exercises.length > 0 ? exercises.map((item, i) => (
+                            <div key={i} className={`relative p-3 flex justify-between items-center rounded-xl border ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-slate-50 border-slate-100')}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600'}`}><Activity size={16} /></div>
+                                    <div className="flex flex-col"><span className={`text-sm font-semibold ${styles.textMain}`}>{item.name}</span><span className={`text-[10px] ${styles.textSec}`}>{item.duration}</span></div>
+                                </div>
+                                <span className={`text-sm font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.calories}</span>
+                            </div>
+                        )) : <div className="text-center py-6 text-gray-400 text-sm italic">No activities logged today</div>
+                    }
                 </div>
             </div>
         </div>
     );
 };
-
-// ==========================================
-// 7. MAIN CONTROLLER
-// ==========================================
 
 const MainApp = () => {
     const [currentView, setCurrentView] = useState('home');
@@ -870,6 +540,106 @@ const MainApp = () => {
     const [goal, setGoal] = useState(2200);
     const [waterIntake, setWaterIntake] = useState(4);
     const [logs, setLogs] = useState({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    const totals = useMemo(() => {
+        return logs.Breakfast.concat(logs.Lunch, logs.Dinner, logs.Snacks).reduce((acc, item) => ({
+            cals: acc.cals + (item.calories || 0),
+            pro: acc.pro + (item.protein || 0),
+            carb: acc.carb + (item.carbs || 0),
+            fat: acc.fat + (item.fat || 0),
+        }), { cals: 0, pro: 0, carb: 0, fat: 0 });
+    }, [logs]);
+
+    // --- FIREBASE AUTH & SYNC ---
+    useEffect(() => {
+        if (!auth) {
+            console.error("Firebase Auth not initialized");
+            setLoading(false);
+            return;
+        }
+
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
+            if (u) {
+                setUser(u);
+                try {
+                    // Fetch User Stats
+                    const userRef = doc(db, 'users', u.uid);
+                    const userSnap = await getDoc(userRef);
+                    if (userSnap.exists()) {
+                        const data = userSnap.data();
+                        if (data.userStats) setUserStats(data.userStats);
+                        else setShowOnboarding(true); // User exists but no stats
+                        if (data.theme) setTheme(data.theme);
+                    } else {
+                        // New user doc doesn't exist yet
+                        setShowOnboarding(true);
+                    }
+
+                    // Subscribe to Today's Logs
+                    const today = new Date().toISOString().split('T')[0];
+                    const logRef = doc(db, 'users', u.uid, 'daily_logs', today);
+
+                    // Realtime listener for logs
+                    const unsubLogs = onSnapshot(logRef, (doc) => {
+                        if (doc.exists()) {
+                            const data = doc.data();
+                            setLogs(data.foodLogs || { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+                            setExercises(data.exercises || []);
+                            setWaterIntake(data.waterIntake || 0);
+                        } else {
+                            // Initialize if new day/user
+                            setLogs({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+                            setExercises([]);
+                            setWaterIntake(0);
+                        }
+                        setLoading(false);
+                    });
+
+                    return () => unsubLogs();
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                    setLoading(false);
+                }
+            } else {
+                // No user, stop loading
+                setLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // --- AUTO-SAVE USER STATS & THEME ---
+    useEffect(() => {
+        if (!user) return;
+        const saveStats = async () => {
+            try {
+                await setDoc(doc(db, 'users', user.uid), { userStats, theme }, { merge: true });
+            } catch (e) { console.error("Error saving stats", e); }
+        };
+        const timeout = setTimeout(saveStats, 1000);
+        return () => clearTimeout(timeout);
+    }, [userStats, theme, user]);
+
+    // --- AUTO-SAVE LOGS ---
+    useEffect(() => {
+        if (!user || loading) return;
+        const saveLogs = async () => {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                await setDoc(doc(db, 'users', user.uid, 'daily_logs', today), {
+                    foodLogs: logs,
+                    exercises,
+                    waterIntake,
+                    totals
+                }, { merge: true });
+            } catch (e) { console.error("Error saving logs", e); }
+        };
+        const timeout = setTimeout(saveLogs, 1000); // Debounce 1s
+        return () => clearTimeout(timeout);
+    }, [logs, exercises, waterIntake, totals, user, loading]);
 
     // Calculate dynamic goal on stats change
     useEffect(() => {
@@ -882,15 +652,6 @@ const MainApp = () => {
         }
         setGoal(Math.round(newGoal));
     }, [userStats]);
-
-    const totals = useMemo(() => {
-        return logs.Breakfast.concat(logs.Lunch, logs.Dinner, logs.Snacks).reduce((acc, item) => ({
-            cals: acc.cals + (item.calories || 0),
-            pro: acc.pro + (item.protein || 0),
-            carb: acc.carb + (item.carbs || 0),
-            fat: acc.fat + (item.fat || 0),
-        }), { cals: 0, pro: 0, carb: 0, fat: 0 });
-    }, [logs]);
 
     const handleAddFood = (item, mealOrType) => {
         if (mealOrType === 'exercise') {
@@ -912,16 +673,19 @@ const MainApp = () => {
         setEditingFood(null);
     };
 
-    const handleDeleteFood = (food, meal = null) => {
-        const targetMeal = meal || food.meal;
-        setLogs(prev => ({ ...prev, [targetMeal]: prev[targetMeal].filter(f => f.uid !== food.uid) }));
-    };
-
     const handleEditFood = (food, meal) => {
         setInitialSearchTerm(food.name);
         setEditingFood({ ...food, meal });
         setSelectedMealForAdd(meal);
         setShowAddModal({ visible: true, type: 'food' });
+    };
+
+    const handleDeleteFood = (food, meal) => {
+        setLogs(prev => ({
+            ...prev,
+            [meal]: prev[meal].filter(f => f.uid !== food.uid)
+        }));
+        setShowDetailModal(false);
     };
 
     const handleBatchDelete = (meal) => {
@@ -971,12 +735,17 @@ const MainApp = () => {
         });
     };
 
+    const handleOnboardingSave = (stats) => {
+        setUserStats(stats);
+        setShowOnboarding(false);
+    };
+
     const generateInsight = async (stats) => {
-        const prompt = `Act as a fitness coach. User Stats: Goal ${stats.goal}kcal, Eaten ${stats.totals.cals}kcal (P:${stats.totals.pro}g, C:${stats.totals.carb}g, F:${stats.totals.fat}g), Burned ${stats.burned}kcal, Water ${stats.waterIntake * 250}ml. 
-      Give a short JSON response with two fields: "praise" (max 10 words, encouraging) and "advice" (max 15 words, actionable tip). No markdown.`;
+        const prompt = `Act as a fitness coach. User Stats: Goal ${stats.goal}kcal, Eaten ${stats.totals.cals}kcal (P:${stats.totals.pro}g, C:${stats.totals.carb}g, F:${stats.totals.fat}g), Burned ${stats.burned}kcal, Water ${stats.waterIntake * 250}ml.
+            Give a short JSON response with two fields: "praise" (max 10 words, encouraging) and "advice" (max 15 words, actionable tip). No markdown.`;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -985,11 +754,21 @@ const MainApp = () => {
             const text = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
             return JSON.parse(text);
         } catch (e) {
+            console.error("Gemini Error:", e);
             return { praise: "Keep going!", advice: "Try to hit your protein goal." };
         }
     };
 
     const styles = THEMES[theme];
+
+    if (loading) return (
+        <div className={`h-screen w-full flex flex-col items-center justify-center ${THEMES[theme].bg}`}>
+            <Loader2 size={48} className={`animate-spin ${THEMES[theme].textMain}`} />
+            <p className={`mt-4 font-bold ${THEMES[theme].textSec}`}>Syncing...</p>
+        </div>
+    );
+
+    if (!user) return <AuthPage />;
 
     return (
         <div className={`min-h-screen font-sans mx-auto relative overflow-hidden transition-colors duration-500 ${styles.bg}`}>
@@ -1008,13 +787,15 @@ const MainApp = () => {
                     />
                 )}
                 {currentView === 'reports' && <ReportsView theme={theme} isDark={theme === 'dark'} />}
-                {currentView === 'diary' && <div className={`h-screen flex items-center justify-center font-medium ${styles.textSec}`}>Diary View Coming Soon</div>}
-                {currentView === 'profile' && <div className={`h-screen flex items-center justify-center font-medium ${styles.textSec}`}>Profile View Coming Soon</div>}
+                {currentView === 'diary' && <DiaryView theme={theme} />}
+                {currentView === 'profile' && <UserProfileView theme={theme} />}
             </div>
 
-            <div className="fixed bottom-28 right-6 z-40">
-                <button onClick={() => openAddModal(null, 'food')} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}><Plus size={32} /></button>
-            </div>
+            {currentView === 'home' && (
+                <div className="fixed bottom-28 right-6 z-40">
+                    <button onClick={() => openAddModal(null, 'food')} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}><Plus size={32} /></button>
+                </div>
+            )}
 
             <div className={`fixed bottom-0 left-0 right-0 h-24 rounded-t-[2rem] flex justify-around items-start pt-4 z-50 px-2 transition-colors duration-500 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
                 <NavButton active={currentView === 'home'} onClick={() => setCurrentView('home')} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
@@ -1025,7 +806,7 @@ const MainApp = () => {
             </div>
 
             {showAddModal.visible && (
-                <SmartAddModal
+                <AddFoodView
                     meal={selectedMealForAdd}
                     type={showAddModal.type}
                     userStats={userStats}
@@ -1048,6 +829,8 @@ const MainApp = () => {
                     onClose={() => setShowDetailModal(false)}
                 />
             )}
+
+            {showOnboarding && <OnboardingModal userStats={userStats} onSave={handleOnboardingSave} theme={theme} />}
         </div>
     );
 };
