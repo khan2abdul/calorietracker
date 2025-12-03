@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2, Sparkles } from 'lucide-react';
 import { THEMES } from '../theme';
-import { storage, auth } from '../firebase';
+import { storage, auth, db } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 
@@ -10,6 +10,7 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
     const [isEditing, setIsEditing] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [tempStats, setTempStats] = useState(userStats || {});
+    const [feedbackStatus, setFeedbackStatus] = useState('idle');
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -220,9 +221,9 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                         const text = input.value.trim();
                         if (!text) return;
 
+                        setFeedbackStatus('sending');
                         try {
-                            const { addDoc, collection, getFirestore } = await import('firebase/firestore');
-                            const db = getFirestore();
+                            const { addDoc, collection } = await import('firebase/firestore');
                             await addDoc(collection(db, 'feedback'), {
                                 uid: user.uid,
                                 email: user.email,
@@ -230,16 +231,27 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                                 timestamp: new Date()
                             });
                             input.value = '';
-                            alert("Thank you for your feedback!");
+                            setFeedbackStatus('success');
+                            setTimeout(() => setFeedbackStatus('idle'), 3000);
                         } catch (e) {
                             console.error("Error sending feedback:", e);
-                            alert("Failed to send feedback.");
+                            setFeedbackStatus('error');
+                            setTimeout(() => setFeedbackStatus('idle'), 3000);
                         }
                     }}
-                    className={`w-full py-3 rounded-xl font-bold text-sm transition-transform active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}
+                    disabled={feedbackStatus === 'sending'}
+                    className={`w-full py-3 rounded-xl font-bold text-sm transition-transform active:scale-95 flex items-center justify-center gap-2 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'} ${feedbackStatus === 'sending' ? 'opacity-50' : ''}`}
                 >
-                    Submit Feedback
+                    {feedbackStatus === 'sending' ? <Loader2 size={16} className="animate-spin" /> : 'Submit Feedback'}
                 </button>
+                {feedbackStatus === 'success' && (
+                    <div className={`mt-2 p-3 rounded-xl text-center text-sm font-bold animate-fade-in ${theme === 'dark' ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                        Thank you for your feedback! 🚀
+                    </div>
+                )}
+                {feedbackStatus === 'error' && (
+                    <p className="text-center text-xs text-red-500 mt-2 animate-fade-in">Failed to send. Please try again.</p>
+                )}
             </div>
 
             {/* Actions */}
