@@ -53,8 +53,8 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
             await updateProfile(auth.currentUser, { photoURL });
 
             // Also save to Firestore
-            const { doc, setDoc, getFirestore } = await import('firebase/firestore');
-            const db = getFirestore();
+            // Also save to Firestore
+            const { doc, setDoc } = await import('firebase/firestore');
             await setDoc(doc(db, 'users', user.uid), { photoURL }, { merge: true });
 
             // Force UI update by reloading is not ideal, but for now we can rely on React state if we had a setUser. 
