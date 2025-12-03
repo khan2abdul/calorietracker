@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { THEMES } from '../theme';
 import { db } from '../firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { Calendar, Flame, Trophy, ChevronRight, TrendingUp, Award } from 'lucide-react';
 
 const DiaryView = ({ theme, user, onDayClick }) => {
@@ -12,16 +12,19 @@ const DiaryView = ({ theme, user, onDayClick }) => {
     useEffect(() => {
         if (!user) return;
 
+        // Calculate date 30 days ago
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const startDateStr = startDate.toISOString().split('T')[0];
+
         const q = query(
             collection(db, 'users', user.uid, 'daily_logs'),
-            orderBy('__name__', 'desc'),
-            limit(14)
+            where('__name__', '>=', startDateStr)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => {
                 const docData = doc.data();
-                // Calculate total burned from exercises array if not explicitly stored
                 const burned = docData.exercises
                     ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0)
                     : (docData.burned || 0);
@@ -32,6 +35,10 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                     burned
                 };
             });
+
+            // Sort by date desc
+            data.sort((a, b) => b.date.localeCompare(a.date));
+
             setHistory(data);
             setLoading(false);
         }, (error) => {
@@ -45,28 +52,44 @@ const DiaryView = ({ theme, user, onDayClick }) => {
     const stats = useMemo(() => {
         if (!history.length) return { streak: 0, totalDays: 0, bestDay: null };
 
-        // Calculate Streak (consecutive days)
+        // Helper to get local date string YYYY-MM-DD
+        const getLocalDateStr = (date) => {
+            const offset = date.getTimezoneOffset();
+            const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+            return localDate.toISOString().split('T')[0];
+        };
+
+        const todayStr = getLocalDateStr(new Date());
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = getLocalDateStr(yesterday);
+
         let streak = 0;
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-        // Check if today or yesterday exists in history to start streak
-        const hasToday = history.find(h => h.date === today);
-        const hasYesterday = history.find(h => h.date === yesterday);
+        // Check start of streak
+        // The history is ordered by date desc (from Firestore query)
+        const latestLogDate = history[0].date;
 
-        if (hasToday || hasYesterday) {
+        if (latestLogDate === todayStr) {
             streak = 1;
-            let currentDate = new Date(hasToday ? today : yesterday);
+        } else if (latestLogDate === yesterdayStr) {
+            streak = 1;
+        } else {
+            // If the last log is older than yesterday, streak is broken
+            return { streak: 0, totalDays: history.length };
+        }
 
-            // Iterate backwards
-            for (let i = 1; i < history.length; i++) {
-                currentDate.setDate(currentDate.getDate() - 1);
-                const dateStr = currentDate.toISOString().split('T')[0];
-                if (history.find(h => h.date === dateStr)) {
-                    streak++;
-                } else {
-                    break;
-                }
+        // Continue checking backwards for consecutive days
+        let expectedDate = new Date(latestLogDate); // Start from the latest log date found
+
+        for (let i = 1; i < history.length; i++) {
+            expectedDate.setDate(expectedDate.getDate() - 1); // Go back one day
+            const expectedDateStr = getLocalDateStr(expectedDate);
+
+            if (history[i].date === expectedDateStr) {
+                streak++;
+            } else {
+                break; // Gap found, streak ends
             }
         }
 
@@ -135,7 +158,14 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                     <div className="text-center py-10 opacity-50">Loading receipts...</div>
                 ) : history.length > 0 ? (
                     <div className="space-y-4">
-                        {history.map((day) => (
+                        {history.filter(day => {
+                            const hasCalories = (day.totals?.cals || 0) > 0;
+                            const hasBurned = (day.burned || 0) > 0;
+                            const hasWater = (day.waterIntake || 0) > 0;
+                            const hasFood = day.foodLogs && Object.values(day.foodLogs).some(arr => arr && arr.length > 0);
+                            const hasExercises = day.exercises && day.exercises.length > 0;
+                            return hasCalories || hasBurned || hasWater || hasFood || hasExercises;
+                        }).map((day) => (
                             <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-5 rounded-[2rem] border transition-all hover:scale-[1.01] active:scale-95 ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
                                 <div className="flex justify-between items-center mb-4 border-b pb-3 border-dashed border-gray-200/20">
                                     <div className="flex items-center gap-3">

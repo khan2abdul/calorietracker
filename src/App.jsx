@@ -860,7 +860,7 @@ const MainApp = () => {
         };
         const timeout = setTimeout(saveLogs, 1000); // Debounce 1s
         return () => clearTimeout(timeout);
-    }, [logs, exercises, waterIntake, totals, user, loading, currentDate]);
+    }, [logs, exercises, waterIntake, totals, user, loading]);
 
     // Calculate dynamic goal on stats change
     useEffect(() => {

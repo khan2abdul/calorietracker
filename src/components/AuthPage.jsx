@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, checkConnection } from '../firebase';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import gymBg from '../assets/gym_bg.png';
 
@@ -16,7 +16,14 @@ const AuthPage = () => {
         setError('');
 
         if (!auth) {
-            setError("Firebase Auth not initialized. Please refresh or check configuration.");
+            console.log("Auth not initialized, checking connection...");
+            const status = await checkConnection();
+            console.log("Connection status:", status);
+            if (!status.success) {
+                setError(status.message);
+            } else {
+                setError("Firebase Auth not initialized. Please refresh or check configuration.");
+            }
             setLoading(false);
             return;
         }
