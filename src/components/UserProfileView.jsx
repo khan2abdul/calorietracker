@@ -11,7 +11,12 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
     const [uploading, setUploading] = useState(false);
     const [tempStats, setTempStats] = useState(userStats || {});
     const [feedbackStatus, setFeedbackStatus] = useState('idle');
+    const [avatarUrl, setAvatarUrl] = useState(user?.photoURL);
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        setAvatarUrl(user?.photoURL);
+    }, [user?.photoURL]);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -44,26 +49,27 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
         const file = e.target.files[0];
         if (!file || !user) return;
 
+        console.log("Starting image upload...");
         setUploading(true);
         try {
             const storageRef = ref(storage, `profile_images/${user.uid}`);
+            console.log("Uploading bytes...");
             await uploadBytes(storageRef, file);
-            const photoURL = await getDownloadURL(storageRef);
 
+            console.log("Getting download URL...");
+            const photoURL = await getDownloadURL(storageRef);
+            console.log("Got URL:", photoURL);
+
+            console.log("Updating auth profile...");
             await updateProfile(auth.currentUser, { photoURL });
 
             // Also save to Firestore
-            // Also save to Firestore
+            console.log("Saving to Firestore...");
             const { doc, setDoc } = await import('firebase/firestore');
             await setDoc(doc(db, 'users', user.uid), { photoURL }, { merge: true });
 
-            // Force UI update by reloading is not ideal, but for now we can rely on React state if we had a setUser. 
-            // Since user comes from prop, we can't easily mutate it. 
-            // However, we can trigger a reload or just let the user see the new image if we use a local state for the image source.
-            // But the user requested "saved in db". We did that.
-            // To show it immediately without reload:
-            const img = document.querySelector('.profile-avatar');
-            if (img) img.src = photoURL;
+            console.log("Upload complete, updating local state...");
+            setAvatarUrl(photoURL);
 
         } catch (error) {
             console.error("Error uploading image:", error);
@@ -104,7 +110,7 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                                 </div>
                             ) : (
                                 <img
-                                    src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'User'}`}
+                                    src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'User'}`}
                                     alt="Avatar"
                                     className="profile-avatar w-full h-full object-cover bg-gray-200"
                                 />
