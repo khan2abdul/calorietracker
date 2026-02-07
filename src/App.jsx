@@ -1071,7 +1071,26 @@ const MainApp = () => {
                         editingFood={editingFood}
                         onClose={handleCloseAddModal}
                         onAdd={handleAddFood}
+                        recentFoods={Object.values(logs).flat().slice(-8).reverse()}
+                        foodPatterns={(() => {
+                            const hour = new Date().getHours();
+                            const suggestions = [];
+                            // Check if Tea is logged frequently and suggest biscuits
+                            const hasTea = Object.values(logs).flat().some(f => f.name?.toLowerCase().includes('tea'));
+                            if (hasTea) {
+                                suggestions.push("Usually log biscuits with tea? Add Biscuits (~120 kcal)");
+                            }
+                            // Morning typical breakfast suggestion
+                            if (hour >= 6 && hour < 10 && selectedMealForAdd === 'Breakfast') {
+                                const breakfastItems = logs.Breakfast || [];
+                                if (breakfastItems.length > 2) {
+                                    suggestions.push(`Your typical breakfast: ${breakfastItems.slice(0, 2).map(f => f.name).join(' + ')}`);
+                                }
+                            }
+                            return suggestions.length > 0 ? { suggestion: suggestions[0] } : {};
+                        })()}
                     />
+
                 )
             }
 
