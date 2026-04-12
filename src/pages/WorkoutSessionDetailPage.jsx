@@ -114,12 +114,12 @@ const WorkoutSessionDetailPage = ({ sessionId, setCurrentView }) => {
                     <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Distance</div>
                 </div>
                 <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-[#60a5fa] font-bold text-lg">{session.type === 'gps' ? formatTime(session.duration) : `${session.duration} min`}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Duration</div>
+                    <div className="text-[#fbbf24] font-bold text-lg">{session.steps || Math.round(session.distance * 1350)}</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Steps</div>
                 </div>
                 <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-white font-bold text-lg">{session.type === 'gps' ? calcPace(session.duration, session.distance) : '--'}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Avg Pace</div>
+                    <div className="text-[#60a5fa] font-bold text-lg">{session.type === 'gps' ? formatTime(session.duration) : `${session.duration} min`}</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Duration</div>
                 </div>
                 <div className="bg-[#161616] rounded-2xl p-4 text-center">
                     <div className="text-[#ff5733] font-bold text-lg">{session.caloriesBurned} kcal</div>

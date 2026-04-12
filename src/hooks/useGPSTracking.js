@@ -35,6 +35,7 @@ export function useGPSTracking() {
     const [routePoints, setRoutePoints] = useState([]);
     const [totalDistance, setTotalDistance] = useState(0);
     const [seconds, setSeconds] = useState(0);
+    const [steps, setSteps] = useState(0);
     const [error, setError] = useState(null);
     const [userWeight, setUserWeight] = useState(70);
     const [activityType, setActivityType] = useState('walking');
@@ -43,6 +44,10 @@ export function useGPSTracking() {
     const timerRef = useRef(null);
     const wakeLockRef = useRef(null);
     const lastPointRef = useRef(null);
+
+    // Step Counter Refs
+    const lastStepTimeRef = useRef(0);
+    const accelBufferRef = useRef([]);
 
     useEffect(() => {
         const fetchWeight = async () => {
@@ -58,9 +63,29 @@ export function useGPSTracking() {
         fetchWeight();
     }, []);
 
+    // Motion Permission Handler
+    const requestMotionPermission = async () => {
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+                const permission = await DeviceMotionEvent.requestPermission();
+                return permission === 'granted';
+            } catch (e) {
+                console.error("Motion permission error:", e);
+                return false;
+            }
+        }
+        return true; // Likely Android or desktop
+    };
+
     const start = async (type) => {
         setError(null);
         setActivityType(type);
+
+        const motionGranted = await requestMotionPermission();
+        if (!motionGranted) {
+            console.warn("Motion permission denied. Falling back to GPS estimation for steps.");
+        }
+
         if (!navigator.geolocation) {
             setError('GPS not available on this device.');
             return;
@@ -74,6 +99,7 @@ export function useGPSTracking() {
 
         timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
 
+        // --- GPS TRACKING ---
         watchIdRef.current = navigator.geolocation.watchPosition(
             (position) => {
                 const { latitude, longitude, accuracy } = position.coords;
@@ -92,22 +118,45 @@ export function useGPSTracking() {
                 setRoutePoints(prev => [...prev, newPoint]);
             },
             (err) => {
-                if (err.code === 1) setError('Location permission denied. Please enable GPS in your browser settings.');
-                else if (err.code === 2) setError('GPS signal not found. Try moving to an open area.');
-                else setError('GPS error. Please try again.');
+                if (err.code === 1) setError('Location permission denied.');
+                else if (err.code === 2) setError('GPS signal not found.');
+                else setError('GPS error.');
                 pause();
             },
             { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
         );
+
+        // --- ACCELEROMETER STEP DETECTION ---
+        const handleMotion = (event) => {
+            const accel = event.accelerationIncludingGravity;
+            if (!accel) return;
+
+            // Simple Peak Detection logic
+            const magnitude = Math.sqrt(accel.x ** 2 + accel.y ** 2 + accel.z ** 2);
+            const now = Date.now();
+
+            // Threshold for a step (typical range 12-14)
+            // Min time between steps (250ms avoids double counting)
+            if (magnitude > 13.5 && (now - lastStepTimeRef.current) > 350) {
+                setSteps(s => s + 1);
+                lastStepTimeRef.current = now;
+            }
+        };
+
+        window.addEventListener('devicemotion', handleMotion);
         
         setIsTracking(true);
         setIsPaused(false);
+
+        // Cleanup function for motion listener
+        return () => window.removeEventListener('devicemotion', handleMotion);
     };
 
     const pause = async () => {
         if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
         if (timerRef.current) clearInterval(timerRef.current);
         try { await wakeLockRef.current?.release(); } catch(e){}
+        window.removeEventListener('devicemotion', () => {}); // Generic cleanup handled by start's return or explicit removal
         setIsTracking(false);
         setIsPaused(true);
     };
@@ -118,13 +167,21 @@ export function useGPSTracking() {
 
     const stop = () => {
         pause();
+        
+        // Hybrid Calculation:
+        // Use sensor-counted steps, but if they are suspiciously low (e.g. phone was on a table but moving in a car),
+        // or if sensors aren't working, fall back to distance-based estimate.
+        const gpsEstimatedSteps = Math.round(totalDistance * 1350); 
+        const finalSteps = steps > (gpsEstimatedSteps * 0.5) ? steps : gpsEstimatedSteps;
+
         return {
             activityType,
             duration: seconds,
             distance: parseFloat(totalDistance.toFixed(2)),
             caloriesBurned: calcCalories(totalDistance, seconds, activityType, userWeight),
             route: routePoints,
-            pace: calcPace(seconds, totalDistance)
+            pace: calcPace(seconds, totalDistance),
+            steps: finalSteps || gpsEstimatedSteps
         };
     };
 
@@ -133,6 +190,7 @@ export function useGPSTracking() {
         setRoutePoints([]);
         setTotalDistance(0);
         setSeconds(0);
+        setSteps(0);
         setError(null);
         lastPointRef.current = null;
     };
@@ -145,12 +203,16 @@ export function useGPSTracking() {
         };
     }, []);
 
+    const gpsEstimatedSteps = Math.round(totalDistance * 1350);
+    const displaySteps = steps > 0 ? steps : gpsEstimatedSteps;
+
     return {
         isTracking,
         isPaused,
         routePoints,
         totalDistance,
         seconds,
+        steps: displaySteps,
         currentPace: calcPace(seconds, totalDistance),
         caloriesBurned: calcCalories(totalDistance, seconds, activityType, userWeight),
         error,

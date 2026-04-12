@@ -34,7 +34,7 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
 
     const {
         isTracking, isPaused, routePoints, totalDistance,
-        seconds, currentPace, caloriesBurned, error,
+        seconds, steps, currentPace, caloriesBurned, error,
         start, pause, resume, stop, reset
     } = useGPSTracking();
 
@@ -72,6 +72,7 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
                 duration: Number(sessionData.duration) || 0,
                 distance: Number(sessionData.distance) || 0,
                 caloriesBurned: Number(sessionData.caloriesBurned) || 0,
+                steps: Number(sessionData.steps) || 0,
                 notes: '',
                 route: sessionData.route || [],
                 createdAt: serverTimestamp()
@@ -174,23 +175,27 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
 
             {/* BOTTOM STATS PANEL */}
             <div className="bg-[#111] rounded-t-3xl px-5 pt-4 pb-8 z-10 -mt-6">
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="bg-[#1a1a1a] rounded-2xl p-3 text-center flex flex-col justify-center h-24">
-                        <span className="text-xl font-extrabold text-[#4ade80]">{totalDistance.toFixed(2)} km</span>
-                        <span className="text-xs text-gray-500 mt-1 uppercase tracking-wide">DISTANCE</span>
+                <div className="grid grid-cols-4 gap-2 mb-4 px-1">
+                    <div className="bg-[#1a1a1a] rounded-2xl p-2 text-center flex flex-col justify-center h-20">
+                        <span className="text-lg font-extrabold text-[#4ade80]">{totalDistance.toFixed(2)} km</span>
+                        <span className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-wide">DIST</span>
                     </div>
-                    <div className="bg-[#1a1a1a] rounded-2xl p-3 text-center flex flex-col justify-center h-24">
-                        <span className="text-xl font-extrabold text-[#60a5fa]">{formatTime(seconds)}</span>
-                        <span className="text-xs text-gray-500 mt-1 uppercase tracking-wide">DURATION</span>
+                    <div className="bg-[#1a1a1a] rounded-2xl p-2 text-center flex flex-col justify-center h-20">
+                        <span className="text-lg font-extrabold text-[#60a5fa]">{formatTime(seconds)}</span>
+                        <span className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-wide">TIME</span>
                     </div>
-                    <div className="bg-[#1a1a1a] rounded-2xl p-3 text-center flex flex-col justify-center h-24">
-                        <span className="text-xl font-extrabold text-[#ff5733]">{caloriesBurned} kcal</span>
-                        <span className="text-xs text-gray-500 mt-1 uppercase tracking-wide">BURNED</span>
+                    <div className="bg-[#1a1a1a] rounded-2xl p-2 text-center flex flex-col justify-center h-20">
+                        <span className="text-lg font-extrabold text-[#fbbf24]">{steps}</span>
+                        <span className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-wide">STEPS</span>
+                    </div>
+                    <div className="bg-[#1a1a1a] rounded-2xl p-2 text-center flex flex-col justify-center h-20">
+                        <span className="text-lg font-extrabold text-[#ff5733]">{caloriesBurned} kcal</span>
+                        <span className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-wide">BURN</span>
                     </div>
                 </div>
 
-                <div className="text-center mb-4 text-sm text-gray-400">
-                    Pace: {currentPace} min/km
+                <div className="text-center mb-4 text-xs text-gray-500">
+                    Average Pace: {currentPace} min/km
                 </div>
 
                 {!isTracking && !isPaused && (
@@ -241,12 +246,12 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
                                 <div className="text-xs text-gray-500 mt-1">Distance</div>
                             </div>
                             <div className="bg-[#1e1e1e] rounded-2xl p-4 text-center">
-                                <div className="text-2xl font-extrabold text-[#ff5733]">{formatTime(sessionData.duration)}</div>
-                                <div className="text-xs text-gray-500 mt-1">Duration</div>
+                                <div className="text-2xl font-extrabold text-[#ff5733]">{sessionData.steps}</div>
+                                <div className="text-xs text-gray-500 mt-1">Steps</div>
                             </div>
                             <div className="bg-[#1e1e1e] rounded-2xl p-4 text-center">
-                                <div className="text-2xl font-extrabold text-[#ff5733]">{sessionData.pace} /km</div>
-                                <div className="text-xs text-gray-500 mt-1">Avg Pace</div>
+                                <div className="text-2xl font-extrabold text-[#ff5733]">{formatTime(sessionData.duration)}</div>
+                                <div className="text-xs text-gray-500 mt-1">Duration</div>
                             </div>
                             <div className="bg-[#1e1e1e] rounded-2xl p-4 text-center">
                                 <div className="text-2xl font-extrabold text-[#ff5733]">{sessionData.caloriesBurned} kcal</div>
