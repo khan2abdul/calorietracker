@@ -445,6 +445,15 @@ const DashboardView = ({
 
     const isToday = new Date().toDateString() === currentDate.toDateString();
 
+    const emojiMap = {
+        running: '🏃',
+        walking: '🚶',
+        cycling: '🚴',
+        skipping: '🦘',
+        gym: '🏋️',
+        other: '⚡'
+    };
+
     return (
         <div className="space-y-6 pb-32 animate-fade-in px-6 pt-14">
             <div className="flex justify-between items-center mb-2">
@@ -587,47 +596,7 @@ const DashboardView = ({
                 </div>
             </div>
 
-            {dayActivities.length > 0 && (
-                <div className="mx-6 mb-4 mt-2">
-                    <div className="text-sm font-bold text-gray-400 mb-3 ml-1 uppercase tracking-wider">
-                        🏃 Activities Logged
-                    </div>
-                    {dayActivities.map(activity => {
-                        // Helper inline for emoji
-                        const emoji = activity.activityType === 'running' ? '🏃' :
-                                    activity.activityType === 'walking' ? '🚶' :
-                                    activity.activityType === 'cycling' ? '🚴' :
-                                    activity.activityType === 'skipping' ? '🦘' :
-                                    activity.activityType === 'gym' ? '🏋️' : '⚡';
 
-                        return (
-                            <div
-                                key={activity.id}
-                                className={`rounded-2xl p-4 mb-3 flex items-center gap-4 shadow-sm border ${theme === 'dark' ? 'bg-[#1C1C1E] border-green-500/30' : 'bg-green-50 border-green-200'}`}
-                            >
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-inner ${theme === 'dark' ? 'bg-green-900/40 text-green-400' : 'bg-green-200 text-green-700'}`}>
-                                    {emoji}
-                                </div>
-                                
-                                <div className="flex-1">
-                                    <div className={`text-sm font-bold capitalize ${styles.textMain}`}>
-                                        {activity.activityType}
-                                    </div>
-                                    <div className={`text-[11px] mt-0.5 font-medium ${styles.textSec}`}>
-                                        {activity.distance > 0 ? activity.distance + ' km • ' : ''}
-                                        {displayDuration(activity)}
-                                        {activity.type === 'gps' ? ' • 📍 GPS' : ' • ✏️ Manual'}
-                                    </div>
-                                </div>
-                                
-                                <div className={`font-black text-sm ${theme === 'dark' ? 'text-orange-400' : 'text-orange-600'}`}>
-                                    -{activity.caloriesBurned} kcal
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
 
             {/* --- FITNESS HUB --- */}
             <div className={`rounded-[2.5rem] p-6 border relative overflow-hidden ${styles.card} ${styles.border}`}>
@@ -666,14 +635,14 @@ const DashboardView = ({
                 {/* Activities List */}
                 <div className="space-y-3 relative z-10">
                     <h4 className={`text-sm font-bold uppercase tracking-wider mb-3 ${styles.textSec}`}>Today's Activities</h4>
-                    {exercises.length > 0 ? (
-                        exercises.map((item, i) => (
+                    {dayActivities.length > 0 ? (
+                        dayActivities.map((item, i) => (
                             <div
-                                key={item.uid || i}
+                                key={item.id || i}
                                 className="relative overflow-hidden rounded-2xl"
                                 onTouchStart={onTouchStart}
                                 onTouchMove={onTouchMove}
-                                onTouchEnd={() => onTouchEnd(item.uid)}
+                                onTouchEnd={() => onTouchEnd(item.id)}
                             >
                                 {/* Actions Background */}
                                 <div className={`absolute inset-0 flex items-center justify-end px-4 gap-2 ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
@@ -684,7 +653,7 @@ const DashboardView = ({
                                         <Edit2 size={18} />
                                     </button>
                                     <button
-                                        onClick={() => onDeleteExercise(item.uid)}
+                                        onClick={() => onDeleteExercise(item.id)}
                                         className={`p-2 rounded-full ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'}`}
                                     >
                                         <Trash2 size={18} />
@@ -694,19 +663,23 @@ const DashboardView = ({
                                 {/* Content Foreground */}
                                 <div
                                     className={`relative p-4 flex justify-between items-center transition-transform duration-300 border ${theme === 'dark' ? 'bg-[#1C1C1E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-slate-100 shadow-sm')}`}
-                                    style={{ transform: swipedExerciseId === item.uid ? 'translateX(-110px)' : 'translateX(0)' }}
-                                    onClick={() => swipedExerciseId === item.uid && setSwipedExerciseId(null)}
+                                    style={{ transform: swipedExerciseId === item.id ? 'translateX(-110px)' : 'translateX(0)' }}
+                                    onClick={() => swipedExerciseId === item.id && setSwipedExerciseId(null)}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${theme === 'dark' ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
-                                            <Activity size={20} />
+                                            <span className="text-xl">{emojiMap[item.activityType] || '⚡'}</span>
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className={`text-base font-bold ${styles.textMain}`}>{item.name}</span>
-                                            <span className={`text-xs font-medium ${styles.textSec}`}>{item.duration}</span>
+                                            <span className={`text-base font-bold capitalize ${styles.textMain}`}>{item.activityType}</span>
+                                            <span className={`text-xs font-medium ${styles.textSec}`}>
+                                                {item.distance > 0 ? `${item.distance} km • ` : ''}
+                                                {displayDuration(item)}
+                                                {item.type === 'gps' ? ' • 📍 GPS' : ' • ✏️ Manual'}
+                                            </span>
                                         </div>
                                     </div>
-                                    <span className={`text-lg font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.calories}</span>
+                                    <span className={`text-lg font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>-{item.caloriesBurned}</span>
                                 </div>
                             </div>
                         ))
@@ -976,14 +949,33 @@ const MainApp = () => {
         setGoal(Math.round(newGoal));
     }, [userStats]);
 
-    const handleAddFood = (item, mealOrType) => {
+    const handleAddFood = async (item, mealOrType) => {
         if (mealOrType === 'exercise') {
-            if (editingFood) {
-                // Update existing exercise
-                setExercises(prev => prev.map(ex => ex.uid === editingFood.uid ? { ...item, uid: editingFood.uid } : ex));
-            } else {
-                // Add new exercise
-                setExercises(prev => [...prev, { ...item, uid: Date.now().toString() + Math.random() }]);
+            try {
+                if (editingFood && editingFood.id) {
+                    // Update existing activity in the root collection
+                    await setDoc(doc(db, 'activities', editingFood.id), {
+                        ...item,
+                        userId: user.uid,
+                        type: 'manual',
+                        date: Timestamp.fromDate(currentDate),
+                        caloriesBurned: item.calories, // ensure consistency
+                        activityType: item.name.toLowerCase()
+                    }, { merge: true });
+                } else {
+                    // Add new manual activity to the root collection
+                    await addDoc(collection(db, 'activities'), {
+                        ...item,
+                        userId: user.uid,
+                        type: 'manual',
+                        date: Timestamp.fromDate(currentDate),
+                        caloriesBurned: item.calories,
+                        activityType: item.name.toLowerCase()
+                    });
+                }
+            } catch (error) {
+                console.error("Error saving activity:", error);
+                alert("Failed to save activity.");
             }
         } else {
             const newFood = { ...item, uid: Date.now().toString() + Math.random(), meal: mealOrType };
@@ -1028,8 +1020,14 @@ const MainApp = () => {
         setShowAddModal({ visible: true, type: 'exercise' });
     };
 
-    const handleDeleteExercise = (exerciseId) => {
-        setExercises(prev => prev.filter(ex => ex.uid !== exerciseId));
+    const handleDeleteExercise = async (activityId) => {
+        if (!window.confirm("Delete this activity?")) return;
+        try {
+            await deleteDoc(doc(db, 'activities', activityId));
+        } catch (error) {
+            console.error("Error deleting activity:", error);
+            alert("Failed to delete activity.");
+        }
     };
 
 
