@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, useMap, CircleMarker } from 'react-leaflet';
 import { useGPSTracking } from '../hooks/useGPSTracking';
-import { db, auth } from '../firebase';
+import { db, auth } from '../firebase.js';
 import { addDoc, collection, Timestamp, serverTimestamp } from 'firebase/firestore';
 
 function formatTime(s) {
@@ -128,18 +128,20 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
                     zoomControl={false}
                     attributionControl={false}
                 >
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                    {routePoints.length > 1 && (
-                        <Polyline positions={routePoints} pathOptions={{ color: '#22c55e', weight: 5, smoothFactor: 1 }} />
-                    )}
-                    {routePoints.length > 0 && (
-                        <CircleMarker 
-                            center={routePoints[routePoints.length - 1]} 
-                            pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1 }} 
-                            radius={8} 
-                        />
-                    )}
-                    <MapAutoCenter routePoints={routePoints} setMapInstance={setMapInstance} />
+                    <>
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                        {routePoints.length > 1 && (
+                            <Polyline positions={routePoints} pathOptions={{ color: '#22c55e', weight: 5, smoothFactor: 1 }} />
+                        )}
+                        {routePoints.length > 0 && (
+                            <CircleMarker 
+                                center={routePoints[routePoints.length - 1]} 
+                                pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1 }} 
+                                radius={8} 
+                            />
+                        )}
+                        <MapAutoCenter routePoints={routePoints} setMapInstance={setMapInstance} />
+                    </>
                 </MapContainer>
 
                 {error && (

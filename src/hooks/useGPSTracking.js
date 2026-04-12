@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { db, auth } from '../firebase';
+import { db, auth } from '../firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
 
 function haversine(lat1, lon1, lat2, lon2) {

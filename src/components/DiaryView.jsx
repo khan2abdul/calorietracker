@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { THEMES } from '../theme';
-import { db } from '../firebase';
+import { db, auth } from '../firebase.js';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { Calendar, Flame, Trophy, ChevronRight, TrendingUp, Award } from 'lucide-react';
 

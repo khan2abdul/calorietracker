@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2, Sparkles } from 'lucide-react';
 import { THEMES } from '../theme';
-import { storage, auth, db } from '../firebase';
+import { storage, auth, db } from '../firebase.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import ReportsView from './ReportsView';

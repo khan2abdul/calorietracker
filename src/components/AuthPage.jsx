@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth, checkConnection } from '../firebase';
+import { auth, checkConnection } from '../firebase.js';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import gymBg from '../assets/gym_bg.png';
 

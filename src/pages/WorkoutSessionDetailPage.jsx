@@ -3,7 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
 import { activityEmoji } from '../hooks/useWorkoutHistory';
-import { db } from '../firebase';
+import { db } from '../firebase.js';
 
 function formatTime(s) {
     const m = Math.floor(s / 60);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth } from '../firebase.js';
 
 export function useTodayBurned(targetDate = new Date()) {
     const [totalBurned, setTotalBurned] = useState(0);

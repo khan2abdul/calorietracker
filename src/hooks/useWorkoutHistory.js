@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, limit, startAfter, onSnapshot, getDocs, deleteDoc, doc, Timestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth } from '../firebase.js';
 
 export const activityEmoji = {
     walking: '🚶',

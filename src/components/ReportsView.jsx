@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart2, Loader2, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { THEMES } from '../theme';
-import { db } from '../firebase';
+import { db } from '../firebase.js';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import EnergyHistoryGraph from './EnergyHistoryGraph';
 
