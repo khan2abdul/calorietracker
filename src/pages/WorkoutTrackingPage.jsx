@@ -11,8 +11,12 @@ function formatTime(s) {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-const MapAutoCenter = ({ routePoints }) => {
+const MapAutoCenter = ({ routePoints, setMapInstance }) => {
     const map = useMap();
+    useEffect(() => {
+        if (map) setMapInstance(map);
+    }, [map, setMapInstance]);
+
     useEffect(() => {
         if (routePoints.length > 0) {
             map.setView(routePoints[routePoints.length - 1], map.getZoom());
@@ -26,7 +30,7 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
     const [showSummary, setShowSummary] = useState(false);
     const [sessionData, setSessionData] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
-    const mapRef = useRef(null);
+    const [mapInstance, setMapInstance] = useState(null);
 
     const {
         isTracking, isPaused, routePoints, totalDistance,
@@ -46,10 +50,12 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
     };
 
     useEffect(() => {
-        navigator.geolocation.getCurrentPosition((pos) => {
-            mapRef.current?.setView([pos.coords.latitude, pos.coords.longitude], 16);
-        }, () => {}, { enableHighAccuracy: true });
-    }, []);
+        if (mapInstance) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+            }, () => {}, { enableHighAccuracy: true });
+        }
+    }, [mapInstance]);
 
     const handleSaveSession = async () => {
         setIsSaving(true);
@@ -121,7 +127,6 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
                     className="w-full h-full z-0"
                     zoomControl={false}
                     attributionControl={false}
-                    ref={mapRef}
                 >
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                     {routePoints.length > 1 && (
@@ -134,7 +139,7 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
                             radius={8} 
                         />
                     )}
-                    <MapAutoCenter routePoints={routePoints} />
+                    <MapAutoCenter routePoints={routePoints} setMapInstance={setMapInstance} />
                 </MapContainer>
 
                 {error && (
