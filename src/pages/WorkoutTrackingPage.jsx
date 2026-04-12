@@ -58,27 +58,35 @@ const WorkoutTrackingPage = ({ setCurrentView }) => {
     }, [mapInstance]);
 
     const handleSaveSession = async () => {
+        if (!sessionData || isSaving) return;
         setIsSaving(true);
         try {
             if (!auth.currentUser) throw new Error("Not authenticated");
-            await addDoc(collection(db, 'activities'), {
+            
+            // Ensure values are numbers and not NaN
+            const payload = {
                 userId: auth.currentUser.uid,
                 date: Timestamp.now(),
                 type: 'gps',
                 activityType: activityMode === 'run' ? 'running' : 'walking',
-                duration: sessionData.duration,
-                distance: sessionData.distance,
-                caloriesBurned: sessionData.caloriesBurned,
+                duration: Number(sessionData.duration) || 0,
+                distance: Number(sessionData.distance) || 0,
+                caloriesBurned: Number(sessionData.caloriesBurned) || 0,
                 notes: '',
-                route: sessionData.route,
+                route: sessionData.route || [],
                 createdAt: serverTimestamp()
-            });
+            };
+
+            console.log("Saving GPS session payload:", payload);
+            await addDoc(collection(db, 'activities'), payload);
+            
             reset();
             setShowSummary(false);
             setCurrentView('workout');
-            // Normally would show a toast here
+            alert("Session saved successfully!");
         } catch (e) {
             console.error('Save failed', e);
+            alert("Failed to save session: " + e.message);
         } finally {
             setIsSaving(false);
         }

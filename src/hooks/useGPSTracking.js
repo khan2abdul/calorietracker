@@ -12,13 +12,17 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function calcCalories(dist, dur, type, weight) {
-  if (type === 'running')  return Math.round(dist * weight * 1.1);
-  if (type === 'walking')  return Math.round(dist * weight * 0.9);
-  return Math.round(dist > 0 ? dist * weight * 0.9 : (dur/60) * weight * 0.06);
+  const w = isNaN(weight) || !weight ? 70 : Number(weight);
+  let cal = 0;
+  if (type === 'running')  cal = dist * w * 1.1;
+  else if (type === 'walking')  cal = dist * w * 0.9;
+  else cal = dist > 0 ? dist * w * 0.9 : (dur/60) * w * 0.06;
+  
+  return isNaN(cal) ? 0 : Math.round(cal);
 }
 
 function calcPace(seconds, distKm) {
-  if (distKm < 0.05) return '--';
+  if (!distKm || isNaN(distKm) || distKm < 0.05) return '--';
   const paceMin = (seconds / 60) / distKm;
   const min = Math.floor(paceMin);
   const sec = Math.round((paceMin - min) * 60);
@@ -75,10 +79,10 @@ export function useGPSTracking() {
                 const { latitude, longitude, accuracy } = position.coords;
                 if (accuracy > 30) return;
                 
-                const newPoint = [latitude, longitude];
+                const newPoint = { lat: latitude, lng: longitude };
                 if (lastPointRef.current) {
                     const dist = haversine(
-                        lastPointRef.current[0], lastPointRef.current[1],
+                        lastPointRef.current.lat, lastPointRef.current.lng,
                         latitude, longitude
                     );
                     if (dist < 0.003) return; // less than 3 meters
