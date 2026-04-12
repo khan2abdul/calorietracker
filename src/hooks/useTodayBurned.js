@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
-export function useTodayBurned() {
+export function useTodayBurned(targetDate = new Date()) {
     const [totalBurned, setTotalBurned] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -16,9 +16,9 @@ export function useTodayBurned() {
         );
 
         const unsubscribe = onSnapshot(qAll, (snapshot) => {
-            const start = new Date();
+            const start = new Date(targetDate);
             start.setHours(0, 0, 0, 0);
-            const end = new Date();
+            const end = new Date(targetDate);
             end.setHours(23, 59, 59, 999);
             const startTime = start.getTime();
             const endTime = end.getTime();
@@ -38,7 +38,7 @@ export function useTodayBurned() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [targetDate]);
 
     return { totalBurned, loading };
 }

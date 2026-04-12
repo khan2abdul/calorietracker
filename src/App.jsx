@@ -340,7 +340,8 @@ const DashboardView = ({
     onGenerateInsight, currentDate, setCurrentDate,
     onEditExercise, onDeleteExercise
 }) => {
-    const { totalBurned, loading: burnedLoading } = useTodayBurned();
+    const { totalBurned, loading: burnedLoading } = useTodayBurned(currentDate);
+    const burned = totalBurned; // Alias for existing references
     const [dayActivities, setDayActivities] = useState([]);
 
     useEffect(() => {
@@ -387,7 +388,7 @@ const DashboardView = ({
         }
     };
 
-    const styles = THEMES[theme];
+    const styles = THEMES[theme] || THEMES.dark;
     const [insight, setInsight] = useState(null);
     const [loadingInsight, setLoadingInsight] = useState(false);
     const [swipedExerciseId, setSwipedExerciseId] = useState(null);
