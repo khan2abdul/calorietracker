@@ -1,44 +1,72 @@
-Smart Calorie Tracker
+# 🏃 Smart Calorie Tracker
 
-A modern, iOS-style calorie and fitness tracker built with React, Tailwind CSS, and Lucide Icons.
+A premium, high-performance web application designed for comprehensive fitness and nutrition tracking. Built with a sleek dark-themed aesthetic, it integrates real-time GPS workout tracking, manual activity logging, and AI-powered insights.
 
-Features
+## 🚀 Live Demo
+**URL:** [https://calorie-tracker-a234f.web.app](https://calorie-tracker-a234f.web.app)
 
-Tri-Ring Dashboard: Track Calories, Burn, and Water in a single glance.
+---
 
-Smart AI Logging: Add meals and exercises using natural language.
+## ✨ Key Features
 
-3-Way Theme: Switch between Light, Dark (Neon), and Wooden themes.
+### 🍎 Nutrition & Intake
+- **Meal Logging:** Categorize entries into Breakfast, Lunch, Dinner, or Snacks.
+- **Macro Tracking:** Real-time breakdown of Protein, Carbs, and Fats.
+- **Dynamic Calorie Ring:** Visual guide showing remaining calories vs. daily goal (Adjusts automatically for burned calories).
 
-Fitness Hub: Track body stats and predict weight goals.
+### 🏃 Workout Tracking Module
+- **Live GPS Tracking:** Record outdoor activities (Running, Walking, Cycling) with real-time route rendering using Leaflet maps.
+- **Manual Logs:** Quick-entry for gym sessions, skipping, or other off-map activities.
+- **Auto-Calorie Calculation:** Precise burn estimation based on user weight and activity intensity (MET values).
 
-Energy Reports: Visualize calorie history with interactive graphs.
+### 📊 History & Analytics
+- **Historical Diary:** Scrollable feed of past nutrition and activity logs with infinite-scroll pagination.
+- **Energy Reports:** Monthly calendar view with workout indicators (🏃) and daily net energy summaries (Eaten vs. Burned).
+- **Weekly Stats:** Instant dashboard for sessions completed, distance covered, and total calories burned this week.
 
-Setup & Installation
+### 🤖 AI Integration
+- **Gemini Coach:** AI-powered analysis of your daily habits, providing personalized praise and actionable advice based on your intake and activity levels.
 
-Clone the repository.
+---
 
-Install dependencies:
+## 🛠️ Tech Stack
+- **Frontend:** React.js + Vite
+- **Styling:** Tailwind CSS (Vanilla CSS focus for premium aesthetics)
+- **Database:** Firebase Firestore (Real-time listeners)
+- **Auth:** Firebase Authentication
+- **Maps:** Leaflet & React-Leaflet
+- **Icons:** Lucide-React
 
-npm install
+---
 
+## ⚙️ Development Setup
 
-Create a .env file in the root directory and add your Gemini API key (if using AI features):
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/khan2abdul/calorietracker.git
+   cd calorietracker
+   ```
 
-VITE_GEMINI_API_KEY=your_api_key_here
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
+3. **Configure Firebase:**
+   Create a `.env` file or update `src/firebase.js` with your Firebase project credentials.
 
-(Note: You will need to update App.jsx to read this variable using import.meta.env.VITE_GEMINI_API_KEY)
+4. **Run Locally:**
+   ```bash
+   npm run dev
+   ```
 
-Run the development server:
+5. **Build for Production:**
+   ```bash
+   npm run build
+   ```
 
-npm run dev
+## 📜 License
+MIT License. Feel free to use and modify for personal use!
 
-
-Deployment
-
-This project is ready to deploy on Vercel, Netlify, or GitHub Pages.
-
-Build
-
-npm run build
+---
+*Created with ❤️ by Antigravity*
