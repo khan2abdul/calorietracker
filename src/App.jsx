@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, setDoc, Timestamp, serverTimestamp, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
+console.log("ManualLogSheet-v2.1: Firestore functions imported:", { addDoc: !!addDoc, setDoc: !!setDoc });
+console.log("Calorify-App-v2.1: Firestore functions imported:", { doc: !!doc, setDoc: !!setDoc, deleteDoc: !!deleteDoc });
 import { THEMES, GRAPH_COLORS, iOSBlurLight, iOSBlurDark, iOSBlurWooden } from './theme';
 import { getTimeBasedMeal, generateHistoryData } from './utils';
 
@@ -18,6 +20,7 @@ import UserProfileView from './components/UserProfileView';
 import AddFoodView from './components/AddFoodView';
 import OnboardingModal from './components/OnboardingModal';
 import WorkoutPage from './pages/WorkoutPage';
+import ConfirmModal from './components/ConfirmModal';
 import WorkoutTrackingPage from './pages/WorkoutTrackingPage';
 import WorkoutSessionDetailPage from './pages/WorkoutSessionDetailPage';
 import { useTodayBurned } from './hooks/useTodayBurned';
@@ -654,9 +657,9 @@ const DashboardView = ({
                                     </button>
                                     <button
                                         onClick={() => onDeleteExercise(item.id)}
-                                        className={`p-2 rounded-full ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'}`}
+                                        className={`p-2.5 rounded-full ${theme === 'dark' ? 'bg-red-500/20 text-red-500' : 'bg-red-100 text-red-600'} transition-transform active:scale-90`}
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={20} />
                                     </button>
                                 </div>
 
@@ -787,6 +790,7 @@ const MainApp = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, activityId: null });
 
     // Edit Day Modal State (kept for direct edits if needed, but now we redirect to home)
     const [showEditDayModal, setShowEditDayModal] = useState(false);
@@ -1020,13 +1024,21 @@ const MainApp = () => {
         setShowAddModal({ visible: true, type: 'exercise' });
     };
 
-    const handleDeleteExercise = async (activityId) => {
-        if (!window.confirm("Delete this activity?")) return;
+    const handleDeleteExercise = (activityId) => {
+        setDeleteConfirm({ isOpen: true, activityId });
+    };
+
+    const confirmDeleteExercise = async () => {
+        const activityId = deleteConfirm.activityId;
+        if (!activityId) return;
+        
         try {
             await deleteDoc(doc(db, 'activities', activityId));
+            setDeleteConfirm({ isOpen: false, activityId: null });
         } catch (error) {
             console.error("Error deleting activity:", error);
             alert("Failed to delete activity.");
+            setDeleteConfirm({ isOpen: false, activityId: null });
         }
     };
 
@@ -1225,7 +1237,15 @@ const MainApp = () => {
             )}
 
             {showOnboarding && <OnboardingModal userStats={userStats} onSave={handleOnboardingSave} theme={theme} />}
-        </div >
+
+            <ConfirmModal 
+                isOpen={deleteConfirm.isOpen}
+                title="Delete Activity?"
+                message="Are you sure you want to remove this activity from today's log? This cannot be undone."
+                onConfirm={confirmDeleteExercise}
+                onCancel={() => setDeleteConfirm({ isOpen: false, activityId: null })}
+            />
+        </div>
     );
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { THEMES } from '../theme';
 import { db, auth } from '../firebase.js';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import { Calendar, Flame, Trophy, ChevronRight, TrendingUp, Award } from 'lucide-react';
 
 const DiaryView = ({ theme, user, onDayClick }) => {
@@ -12,51 +12,99 @@ const DiaryView = ({ theme, user, onDayClick }) => {
     useEffect(() => {
         if (!user) return;
 
-        // Calculate date 30 days ago
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
-        const startDateStr = startDate.toISOString().split('T')[0];
+        startDate.setHours(0, 0, 0, 0);
+        const startTime = startDate.getTime();
 
-        const q = query(
+        // 1. Query for daily logs (Food/Totals)
+        // This is a single field query on doc name, which is okay.
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const qLogs = query(
             collection(db, 'users', user.uid, 'daily_logs'),
             where('__name__', '>=', startDateStr)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => {
-                const docData = doc.data();
-                const burned = docData.exercises
-                    ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0)
-                    : (docData.burned || 0);
+        // 2. Query for activities (Workouts)
+        // We only filter by userId to avoid composite index requirement
+        const qActivities = query(
+            collection(db, 'activities'),
+            where('userId', '==', user.uid)
+        );
 
-                return {
-                    date: doc.id,
-                    ...docData,
-                    burned
+        // Combined data state
+        let logsData = [];
+        let activitiesData = [];
+
+        const updateCombined = () => {
+            const daysMap = {};
+            
+            // Helper to get local date string YYYY-MM-DD
+            const getLocalDateStr = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            // Process daily logs
+            logsData.forEach(day => {
+                daysMap[day.date] = { 
+                    ...day, 
+                    burned: day.burned || 0 
                 };
             });
 
-            // Sort by date desc
-            data.sort((a, b) => b.date.localeCompare(a.date));
+            // Process activities and merge
+            activitiesData.forEach(act => {
+                if (!act.date) return;
+                const date = act.date.toDate();
+                if (date.getTime() < startTime) return; // Ignore old activities
 
-            setHistory(data);
+                const dateStr = getLocalDateStr(date);
+
+                if (!daysMap[dateStr]) {
+                    daysMap[dateStr] = {
+                        date: dateStr,
+                        totals: { cals: 0, pro: 0, carb: 0, fat: 0 },
+                        burned: 0,
+                        isVirtual: true
+                    };
+                }
+                
+                // Add workout calories to the day's total burned
+                daysMap[dateStr].burned += (act.caloriesBurned || 0);
+            });
+
+            const merged = Object.values(daysMap).sort((a, b) => b.date.localeCompare(a.date));
+            setHistory(merged);
             setLoading(false);
-        }, (error) => {
-            console.error("Error fetching history:", error);
-            setLoading(false);
+        };
+
+        const unsubLogs = onSnapshot(qLogs, (snap) => {
+            logsData = snap.docs.map(doc => ({ date: doc.id, ...doc.data() }));
+            updateCombined();
         });
 
-        return () => unsubscribe();
+        const unsubActs = onSnapshot(qActivities, (snap) => {
+            activitiesData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            updateCombined();
+        });
+
+        return () => {
+            unsubLogs();
+            unsubActs();
+        };
     }, [user]);
 
     const stats = useMemo(() => {
         if (!history.length) return { streak: 0, totalDays: 0, bestDay: null };
 
-        // Helper to get local date string YYYY-MM-DD
         const getLocalDateStr = (date) => {
-            const offset = date.getTimezoneOffset();
-            const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-            return localDate.toISOString().split('T')[0];
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         };
 
         const todayStr = getLocalDateStr(new Date());

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import ManualLogSheet from '../components/workout/ManualLogSheet';
+import ConfirmModal from '../components/ConfirmModal';
 import { useWorkoutHistory, activityEmoji, formatSessionDate } from '../hooks/useWorkoutHistory';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Edit2 } from 'lucide-react';
 
 const WorkoutPage = ({ setCurrentView, setSelectedSessionId }) => {
     const [showManualSheet, setShowManualSheet] = useState(false);
+    const [editingSession, setEditingSession] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, sessionId: null });
     
     const {
         sessions, loading, loadingMore, hasMore,
@@ -66,12 +69,19 @@ const WorkoutPage = ({ setCurrentView, setSelectedSessionId }) => {
                     <div className="text-xs text-gray-500 leading-4 flex-1">Manually log any workout</div>
                     <button 
                         className="mt-3 bg-[#3b82f6] text-white font-bold text-sm rounded-xl py-2 w-full"
-                        onClick={() => setShowManualSheet(true)}
+                        onClick={() => {
+                            setEditingSession(null);
+                            setShowManualSheet(true);
+                        }}
                     >
                         + Log Now
                     </button>
                     {/* Placeholder for Phase 2 */}
-                    <ManualLogSheet isOpen={showManualSheet} onClose={() => setShowManualSheet(false)} />
+                    <ManualLogSheet 
+                        isOpen={showManualSheet} 
+                        onClose={() => setShowManualSheet(false)} 
+                        editActivity={editingSession}
+                    />
                 </div>
             </div>
 
@@ -147,17 +157,30 @@ const WorkoutPage = ({ setCurrentView, setSelectedSessionId }) => {
                                     <div className="text-[#ff5733] font-bold text-sm">
                                         {session.caloriesBurned} kcal
                                     </div>
-                                    <button 
-                                        className="text-gray-600 hover:text-red-400 transition-colors p-1 z-10"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (window.confirm('Delete this session? This cannot be undone.')) {
-                                                deleteSession(session.id);
-                                            }
-                                        }}
-                                    >
-                                        <Trash2 size={15} strokeWidth={2.5}/>
-                                    </button>
+                                    <div className="flex gap-2">
+                                        {session.type === 'manual' && (
+                                            <button 
+                                                className="text-gray-600 hover:text-blue-400 transition-colors p-1 z-10"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingSession(session);
+                                                    setShowManualSheet(true);
+                                                }}
+                                            >
+                                                <Edit2 size={15} strokeWidth={2.5}/>
+                                            </button>
+                                        )}
+                                        <button 
+                                            className="text-gray-600 hover:text-red-400 transition-colors p-1 z-10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Delete icon clicked for:", session.id);
+                                                setDeleteConfirm({ isOpen: true, sessionId: session.id });
+                                            }}
+                                        >
+                                            <Trash2 size={15} strokeWidth={2.5}/>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -179,6 +202,16 @@ const WorkoutPage = ({ setCurrentView, setSelectedSessionId }) => {
                     )}
                 </>
             )}
+            <ConfirmModal 
+                isOpen={deleteConfirm.isOpen}
+                title="Delete Session?"
+                message="This will permanently remove this activity from your history. This action cannot be undone."
+                onConfirm={() => {
+                    deleteSession(deleteConfirm.sessionId);
+                    setDeleteConfirm({ isOpen: false, sessionId: null });
+                }}
+                onCancel={() => setDeleteConfirm({ isOpen: false, sessionId: null })}
+            />
         </div>
     );
 };
