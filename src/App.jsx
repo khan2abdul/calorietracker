@@ -1185,7 +1185,7 @@ const MainApp = () => {
                 {currentView === 'workout_session_detail' && <WorkoutSessionDetailPage setCurrentView={setCurrentView} sessionId={selectedWorkoutSessionId} />}
             </div>
 
-            <div className={`fixed bottom-0 left-0 right-0 h-22 flex justify-around items-center z-[70] px-4 pb-[max(12px,env(safe-area-inset-bottom))] border-t shadow-[0_-8px_24px_rgba(0,0,0,0.12)] ${theme === 'dark' ? 'bg-black/98 border-white/5' : 'bg-white/98 border-black/5'}`}>
+            <div className={`fixed bottom-0 left-0 right-0 h-22 flex justify-around items-center z-[70] px-4 pb-[max(12px,env(safe-area-inset-bottom))] border-t shadow-[0_-10px_30px_rgba(0,0,0,0.4)] rounded-none ${theme === 'dark' ? 'bg-black border-white/5' : (theme === 'wooden' ? 'bg-[#ead8b1] border-[#8b4513]/10' : 'bg-white border-black/5')}`}>
                 <NavButton 
                     label="Home"
                     active={currentView === 'home' && !showAddModal.visible} 
