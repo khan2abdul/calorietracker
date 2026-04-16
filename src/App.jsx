@@ -613,7 +613,7 @@ const DashboardView = ({
                     </div>
                     <button
                         onClick={onAddExercise}
-                        className={`group px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all shadow-lg active:scale-95 ${theme === 'dark' ? 'bg-red-600 text-white shadow-red-900/20 hover:bg-red-500' : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'}`}
+                        className={`group px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 whitespace-nowrap ${theme === 'dark' ? 'bg-red-600 text-white shadow-red-900/10 hover:bg-red-500' : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'}`}
                     >
                         <Plus size={16} strokeWidth={3} /> Log Activity
                     </button>
@@ -1178,7 +1178,7 @@ const MainApp = () => {
                 )
             }
 
-            <div className={`fixed bottom-0 left-0 right-0 rounded-t-[2rem] flex justify-around items-center pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-[70] px-2 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
+            <div className={`fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center z-[70] px-2 pb-[max(12px,env(safe-area-inset-bottom))] ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
                 <NavButton active={currentView === 'home' && !showAddModal.visible} onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={currentView === 'diary' && !showAddModal.visible} onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={showAddModal.visible} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
