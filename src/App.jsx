@@ -1178,7 +1178,7 @@ const MainApp = () => {
                 )
             }
 
-            <div className={`fixed bottom-0 left-0 right-0 h-20 rounded-t-[2rem] flex justify-around items-start pt-2 z-[70] px-2 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
+            <div className={`fixed bottom-0 left-0 right-0 rounded-t-[2rem] flex justify-around items-center pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-[70] px-2 ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
                 <NavButton active={currentView === 'home' && !showAddModal.visible} onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={currentView === 'diary' && !showAddModal.visible} onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
                 <NavButton active={showAddModal.visible} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
