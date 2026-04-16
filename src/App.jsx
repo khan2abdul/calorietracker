@@ -943,19 +943,27 @@ const MainApp = () => {
 
     // Calculate dynamic goal on stats change
     useEffect(() => {
-        const bmr = (10 * userStats.weight) + (6.25 * userStats.height) - (5 * userStats.age) + 5;
+        const w = Number(userStats.weight) || 70;
+        const h = Number(userStats.height) || 170;
+        const a = Number(userStats.age) || 25;
+        const tw = Number(userStats.targetWeight) || w;
+        const days = Number(userStats.targetDays) || 90;
+
+        const bmr = (10 * w) + (6.25 * h) - (5 * a) + 5;
         const tdee = bmr * 1.3;
         let newGoal = tdee;
-        if (userStats.targetWeight && userStats.weight) {
-            const weightDiff = Math.abs(userStats.weight - userStats.targetWeight);
-            const days = userStats.targetDays || 90;
-            // 7700 kcal per kg of body fat; clamp deficit to safe range 300-1200 kcal/day
-            const dailyAdjustment = Math.min(1200, Math.max(300, (weightDiff * 7700) / days));
-            if (userStats.targetWeight < userStats.weight) newGoal = tdee - dailyAdjustment;
-            if (userStats.targetWeight > userStats.weight) newGoal = tdee + dailyAdjustment;
+
+        if (tw && w && tw !== w) {
+            const weightDiff = Math.abs(w - tw);
+            // Raw deficit: 7700 kcal per kg of body fat
+            const dailyAdjustment = (weightDiff * 7700) / days;
+            if (tw < w) newGoal = tdee - dailyAdjustment;
+            if (tw > w) newGoal = tdee + dailyAdjustment;
         }
-        // Enforce safe minimum of 1200 kcal
-        setGoal(Math.max(1200, Math.round(newGoal)));
+
+        // Safe minimum: never go below 1100 kcal or 70% of BMR
+        const safeMin = Math.max(1100, Math.round(bmr * 0.7));
+        setGoal(Math.max(safeMin, Math.round(newGoal)));
     }, [userStats]);
 
     const handleAddFood = async (item, mealOrType) => {
