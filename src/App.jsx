@@ -434,10 +434,10 @@ const DashboardView = ({
         if (!userStats.targetWeight || !userStats.weight) return null;
         const diff = Math.abs(userStats.weight - userStats.targetWeight);
         if (diff === 0) return "Achieved!";
-        const weeks = diff / 0.5;
+        const days = userStats.targetDays || 90;
         const date = new Date();
-        date.setDate(date.getDate() + (weeks * 7));
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        date.setDate(date.getDate() + days);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }, [userStats]);
 
     const changeDate = (days) => {
@@ -782,7 +782,7 @@ const MainApp = () => {
     const [selectedWorkoutSessionId, setSelectedWorkoutSessionId] = useState(null);
 
     const [selectionState, setSelectionState] = useState({ meal: null, selectedIds: new Set() });
-    const [userStats, setUserStats] = useState({ age: 25, weight: 70, height: 175, targetWeight: 65 });
+    const [userStats, setUserStats] = useState({ age: 25, weight: 70, height: 175, targetWeight: 65, targetDays: 90 });
     const [exercises, setExercises] = useState([]);
     const [goal, setGoal] = useState(2200);
     const [waterIntake, setWaterIntake] = useState(4);
@@ -947,10 +947,15 @@ const MainApp = () => {
         const tdee = bmr * 1.3;
         let newGoal = tdee;
         if (userStats.targetWeight && userStats.weight) {
-            if (userStats.targetWeight < userStats.weight) newGoal = tdee - 500;
-            if (userStats.targetWeight > userStats.weight) newGoal = tdee + 500;
+            const weightDiff = Math.abs(userStats.weight - userStats.targetWeight);
+            const days = userStats.targetDays || 90;
+            // 7700 kcal per kg of body fat; clamp deficit to safe range 300-1200 kcal/day
+            const dailyAdjustment = Math.min(1200, Math.max(300, (weightDiff * 7700) / days));
+            if (userStats.targetWeight < userStats.weight) newGoal = tdee - dailyAdjustment;
+            if (userStats.targetWeight > userStats.weight) newGoal = tdee + dailyAdjustment;
         }
-        setGoal(Math.round(newGoal));
+        // Enforce safe minimum of 1200 kcal
+        setGoal(Math.max(1200, Math.round(newGoal)));
     }, [userStats]);
 
     const handleAddFood = async (item, mealOrType) => {

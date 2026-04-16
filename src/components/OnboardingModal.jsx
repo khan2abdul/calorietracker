@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowRight, Ruler, Weight, Target, Calendar } from 'lucide-react';
+import { ArrowRight, Ruler, Weight, Target, Calendar, Clock } from 'lucide-react';
 import { THEMES } from '../theme';
 
+const TARGET_DAY_OPTIONS = [30, 45, 60, 75, 90];
+
 const OnboardingModal = ({ userStats, onSave, theme }) => {
-    const [stats, setStats] = useState(userStats || { age: '', weight: '', height: '', targetWeight: '' });
+    const [stats, setStats] = useState(userStats || { age: '', weight: '', height: '', targetWeight: '', targetDays: 90 });
     const styles = THEMES[theme];
 
     const handleChange = (field, value) => {
@@ -93,6 +95,37 @@ const OnboardingModal = ({ userStats, onSave, theme }) => {
                         </div>
                     </div>
 
+                    {/* Target Timeline */}
+                    <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className={`p-2.5 rounded-full ${theme === 'dark' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-600'}`}>
+                                <Clock size={20} />
+                            </div>
+                            <label className={`text-xs font-bold uppercase tracking-wider ${styles.textSec}`}>Goal Timeline (days)</label>
+                        </div>
+                        <div className="flex gap-2">
+                            {TARGET_DAY_OPTIONS.map(days => {
+                                const isActive = (stats.targetDays || 90) === days;
+                                return (
+                                    <button
+                                        key={days}
+                                        type="button"
+                                        onClick={() => handleChange('targetDays', days)}
+                                        className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+                                            isActive
+                                                ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg scale-105'
+                                                : (theme === 'dark'
+                                                    ? 'bg-[#1C1C1E] text-gray-400 hover:bg-[#3C3C3E]'
+                                                    : 'bg-gray-200 text-gray-500 hover:bg-gray-300')
+                                        }`}
+                                    >
+                                        {days}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     <button
                         type="submit"
                         className={`w-full py-4 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 mt-4 shadow-lg transform transition-all active:scale-95 ${theme === 'dark' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-black hover:bg-gray-800'}`}
@@ -106,3 +139,4 @@ const OnboardingModal = ({ userStats, onSave, theme }) => {
 };
 
 export default OnboardingModal;
+

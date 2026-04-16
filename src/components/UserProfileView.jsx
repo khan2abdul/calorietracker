@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2, Sparkles } from 'lucide-react';
+import { User, Mail, Calendar, Weight, LogOut, Ruler, Target, Camera, Edit2, Save, X, Loader2, Sparkles, Clock } from 'lucide-react';
 import { THEMES } from '../theme';
 import { storage, auth, db } from '../firebase.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import ReportsView from './ReportsView';
+
+const TARGET_DAY_OPTIONS = [30, 45, 60, 75, 90];
 
 const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => {
     const styles = THEMES[theme];
@@ -40,6 +42,10 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
 
     const handleChange = (field, value) => {
         setTempStats(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleTargetDaysChange = (days) => {
+        setUserStats(prev => ({ ...prev, targetDays: days }));
     };
 
     const handleImageClick = () => {
@@ -204,6 +210,51 @@ const UserProfileView = ({ user, userStats, setUserStats, onLogout, theme }) => 
                     />
                 </div>
             </div>
+
+            {/* Target Timeline Section */}
+            {userStats?.targetWeight && userStats?.weight && userStats.targetWeight !== userStats.weight && (
+                <div className={`p-6 rounded-[2rem] border transition-all ${theme === 'dark' ? 'bg-[#1C1C1E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/30 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-600'}`}>
+                            <Clock size={20} />
+                        </div>
+                        <div>
+                            <h3 className={`text-lg font-bold ${styles.textMain}`}>Target Timeline</h3>
+                            <p className={`text-xs ${styles.textSec}`}>
+                                {Math.abs(userStats.weight - userStats.targetWeight)} kg to {userStats.targetWeight < userStats.weight ? 'lose' : 'gain'} 
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                        {TARGET_DAY_OPTIONS.map(days => {
+                            const isActive = (userStats?.targetDays || 90) === days;
+                            return (
+                                <button
+                                    key={days}
+                                    onClick={() => handleTargetDaysChange(days)}
+                                    className={`flex-1 min-w-[52px] py-3 rounded-2xl font-bold text-sm transition-all duration-300 relative overflow-hidden ${
+                                        isActive
+                                            ? (theme === 'dark'
+                                                ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 scale-105'
+                                                : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-200 scale-105')
+                                            : (theme === 'dark'
+                                                ? 'bg-[#2C2C2E] text-gray-400 hover:bg-[#3C3C3E]'
+                                                : (theme === 'wooden'
+                                                    ? 'bg-[#EAD8B1] text-[#3E2723] hover:bg-[#D7CCC8]'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'))
+                                    }`}
+                                >
+                                    <span className="relative z-10">{days}</span>
+                                    <span className={`block text-[9px] font-medium mt-0.5 relative z-10 ${isActive ? 'text-white/80' : 'opacity-50'}`}>days</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className={`text-[11px] mt-3 text-center font-medium ${styles.textSec} opacity-60`}>
+                        ≈ {((Math.abs(userStats.weight - userStats.targetWeight) / (userStats.targetDays || 90)) * 7).toFixed(1)} kg/week
+                    </p>
+                </div>
+            )}
 
             {/* Embedded Energy Report */}
             <div className={`mt-8 mb-8 border-t border-b py-4 ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
