@@ -60,7 +60,7 @@ const Toggle = ({ checked, onChange, theme }) => (
     </button>
 );
 
-const NavButton = ({ active, onClick, icon, isSpecial, theme, customActiveColor, customInactiveColor }) => {
+const NavButton = ({ active, onClick, icon, label, isSpecial, theme, customActiveColor, customInactiveColor }) => {
     let colorClass = 'text-gray-400';
     if (active) {
         if (theme === 'dark') colorClass = 'text-white';
@@ -76,12 +76,27 @@ const NavButton = ({ active, onClick, icon, isSpecial, theme, customActiveColor,
     if (customActiveColor && active) styleObj.color = customActiveColor;
     else if (customInactiveColor && !active) styleObj.color = customInactiveColor;
 
+    if (isSpecial) {
+        return (
+            <button 
+                onClick={onClick} 
+                className="relative -top-8 flex items-center justify-center"
+            >
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 active:scale-90 ${theme === 'dark' ? 'bg-blue-600 shadow-blue-900/40 text-white' : 'bg-blue-500 shadow-blue-200 text-white'}`}>
+                    <Plus size={32} strokeWidth={3} />
+                </div>
+            </button>
+        );
+    }
+
     return (
-        <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 transition-transform duration-200 active:scale-95`}>
-            <div className={`${(!customActiveColor && !customInactiveColor) ? colorClass : ''} ${active ? 'scale-110 drop-shadow-md' : 'scale-100'} ${(isSpecial && active && !customActiveColor) ? specialColor : ''} transition-all`} style={styleObj}>
+        <button onClick={onClick} className="flex flex-col items-center justify-center w-16 gap-1 group">
+            <div className={`transition-all duration-200 ${active ? 'scale-110' : 'scale-100 opacity-70'} ${(!customActiveColor && !customInactiveColor) ? colorClass : ''}`} style={styleObj}>
                 {icon}
             </div>
-            {active && <div className={`w-1 h-1 rounded-full mt-1 ${customActiveColor ? '' : (isSpecial ? 'bg-current' : (theme === 'dark' ? 'bg-white' : (theme === 'wooden' ? 'bg-[#3E2723]' : 'bg-black')))}`} style={customActiveColor ? { backgroundColor: customActiveColor } : {}}></div>}
+            <span className={`text-[10px] font-bold tracking-tight uppercase transition-all duration-200 ${active ? (theme === 'dark' ? 'text-white' : 'text-black') : 'text-gray-500'} ${active ? 'opacity-100' : 'opacity-70'}`}>
+                {label}
+            </span>
         </button>
     );
 };
@@ -605,17 +620,17 @@ const DashboardView = ({
             <div className={`rounded-[2.5rem] p-6 border relative overflow-hidden ${styles.card} ${styles.border}`}>
                 <div className="flex justify-between items-center mb-6 relative z-10">
                     <div>
-                        <h3 className={`text-2xl font-extrabold tracking-tight flex items-center gap-2 ${styles.textMain}`}>
-                            <Activity className={theme === 'dark' ? 'text-red-500' : 'text-red-600'} />
+                        <h3 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${styles.textMain}`}>
+                            <Activity size={20} className={theme === 'dark' ? 'text-red-500' : 'text-red-600'} />
                             Fitness Hub
                         </h3>
-                        <p className={`text-xs font-medium ${styles.textSec} mt-1`}>Track your burn & stats</p>
+                        <p className={`text-[11px] font-medium ${styles.textSec}`}>Track your burn & stats</p>
                     </div>
                     <button
                         onClick={onAddExercise}
-                        className={`group px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 whitespace-nowrap ${theme === 'dark' ? 'bg-red-600 text-white shadow-red-900/10 hover:bg-red-500' : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'}`}
+                        className={`group px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 whitespace-nowrap ${theme === 'dark' ? 'bg-red-600 text-white shadow-red-900/10 hover:bg-red-500' : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'}`}
                     >
-                        <Plus size={16} strokeWidth={3} /> Log Activity
+                        <Plus size={14} strokeWidth={3} /> Log Activity
                     </button>
                 </div>
 
@@ -699,15 +714,15 @@ const DashboardView = ({
                     <div className={`mt-6 pt-6 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-200/50'}`}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${theme === 'dark' ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
-                                    <TrendingDown size={18} />
+                                <div className={`p-2 rounded-xl ${theme === 'dark' ? 'bg-green-500/10 text-green-500' : 'bg-green-50 text-green-600'}`}>
+                                    <TrendingDown size={20} />
                                 </div>
-                                <div>
-                                    <p className={`text-xs font-bold uppercase ${styles.textSec}`}>Estimated Goal Date</p>
-                                    <p className={`text-sm font-medium ${styles.textMain}`}>Reach <span className="font-bold">{userStats.targetWeight}kg</span></p>
+                                <div className="flex flex-col">
+                                    <p className={`text-[10px] font-bold uppercase tracking-tight opacity-50 ${styles.textMain}`}>Estimated Goal Date</p>
+                                    <p className={`text-xs font-bold ${styles.textMain}`}>Reach <span className="text-[#ff5733]">{userStats.targetWeight}kg</span></p>
                                 </div>
                             </div>
-                            <div className={`text-lg font-bold ${styles.textMain}`}>{estimateDate || '--'}</div>
+                            <div className={`text-lg font-black tracking-tighter ${styles.textMain}`}>{estimateDate || '--'}</div>
                         </div>
                     </div>
                 )}
@@ -1170,26 +1185,43 @@ const MainApp = () => {
                 {currentView === 'workout_session_detail' && <WorkoutSessionDetailPage setCurrentView={setCurrentView} sessionId={selectedWorkoutSessionId} />}
             </div>
 
-            {
-                currentView === 'home' && (
-                    <div className="fixed bottom-28 right-6 z-40">
-                        <button onClick={() => openAddModal(null, 'food')} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}><Plus size={32} /></button>
-                    </div>
-                )
-            }
-
-            <div className={`fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center z-[70] px-2 pb-[max(12px,env(safe-area-inset-bottom))] ${theme === 'dark' ? iOSBlurDark : (theme === 'wooden' ? iOSBlurWooden : iOSBlurLight)}`}>
-                <NavButton active={currentView === 'home' && !showAddModal.visible} onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<Home size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={currentView === 'diary' && !showAddModal.visible} onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<BookOpen size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
-                <NavButton active={showAddModal.visible} onClick={() => openAddModal(null, 'food')} icon={<Sparkles size={26} strokeWidth={2.5} />} isSpecial isDark={theme === 'dark'} theme={theme} />
+            <div className={`fixed bottom-0 left-0 right-0 h-22 flex justify-around items-center z-[70] px-4 pb-[max(12px,env(safe-area-inset-bottom))] border-t shadow-[0_-8px_24px_rgba(0,0,0,0.12)] ${theme === 'dark' ? 'bg-black/98 border-white/5' : 'bg-white/98 border-black/5'}`}>
                 <NavButton 
+                    label="Home"
+                    active={currentView === 'home' && !showAddModal.visible} 
+                    onClick={() => { setCurrentView('home'); setShowAddModal(prev => ({ ...prev, visible: false })); }} 
+                    icon={<Home size={22} strokeWidth={2.5} />} 
+                    isDark={theme === 'dark'} theme={theme} 
+                />
+                <NavButton 
+                    label="Diary"
+                    active={currentView === 'diary' && !showAddModal.visible} 
+                    onClick={() => { setCurrentView('diary'); setShowAddModal(prev => ({ ...prev, visible: false })); }} 
+                    icon={<BookOpen size={22} strokeWidth={2.5} />} 
+                    isDark={theme === 'dark'} theme={theme} 
+                />
+                
+                <NavButton 
+                    isSpecial 
+                    onClick={() => openAddModal(null, 'food')} 
+                    theme={theme} 
+                />
+
+                <NavButton 
+                    label="Workout"
                     active={currentView === 'workout' && !showAddModal.visible} 
                     onClick={() => { setCurrentView('workout'); setShowAddModal(prev => ({ ...prev, visible: false })); }} 
-                    icon={<Footprints size={26} strokeWidth={2.5} />} 
+                    icon={<Footprints size={22} strokeWidth={2.5} />} 
                     isDark={theme === 'dark'} theme={theme}
                     customActiveColor="#ff5733" customInactiveColor="#666666" 
                 />
-                <NavButton active={currentView === 'profile' && !showAddModal.visible} onClick={() => { setCurrentView('profile'); setShowAddModal(prev => ({ ...prev, visible: false })); }} icon={<User size={26} strokeWidth={2.5} />} isDark={theme === 'dark'} theme={theme} />
+                <NavButton 
+                    label="Profile"
+                    active={currentView === 'profile' && !showAddModal.visible} 
+                    onClick={() => { setCurrentView('profile'); setShowAddModal(prev => ({ ...prev, visible: false })); }} 
+                    icon={<User size={22} strokeWidth={2.5} />} 
+                    isDark={theme === 'dark'} theme={theme} 
+                />
             </div>
 
             {
