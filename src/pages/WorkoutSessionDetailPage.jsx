@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Loader2, MapPin, Calendar, Clock, Activity } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
 import { activityEmoji } from '../hooks/useWorkoutHistory';
 import { db } from '../firebase.js';
+import { THEMES } from '../theme';
 
 function formatTime(s) {
     const m = Math.floor(s / 60);
@@ -11,94 +12,51 @@ function formatTime(s) {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function calcPace(durationSecs, distanceKm) {
-    if (!distanceKm || distanceKm === 0) return '0:00';
-    const paceSecs = durationSecs / distanceKm;
-    const m = Math.floor(paceSecs / 60);
-    const sec = Math.floor(paceSecs % 60);
-    return `${m}:${String(sec).padStart(2, '0')}`;
-}
-
-const WorkoutSessionDetailPage = ({ sessionId, setCurrentView }) => {
+const WorkoutSessionDetailPage = ({ sessionId, onBack, theme }) => {
+    const styles = THEMES[theme] || THEMES.dark;
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
 
     useEffect(() => {
-        if (!sessionId) {
-            setNotFound(true);
-            setLoading(false);
-            return;
-        }
-
+        if (!sessionId) { setNotFound(true); setLoading(false); return; }
         const fetchSession = async () => {
             try {
                 const docSnap = await getDoc(doc(db, 'activities', sessionId));
-                if (docSnap.exists()) {
-                    setSession({ id: docSnap.id, ...docSnap.data() });
-                } else {
-                    setNotFound(true);
-                }
-            } catch (e) {
-                console.error("Error fetching session:", e);
-                setNotFound(true);
-            } finally {
-                setLoading(false);
-            }
+                if (docSnap.exists()) setSession({ id: docSnap.id, ...docSnap.data() });
+                else setNotFound(true);
+            } catch (e) { console.error(e); setNotFound(true); } finally { setLoading(false); }
         };
         fetchSession();
     }, [sessionId]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center pb-20 absolute inset-0 z-[200]">
-                <div className="w-8 h-8 border-4 border-[#ff5733] border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
+    if (loading) return (
+        <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center ${styles.bg}`}>
+            <Loader2 className="animate-spin text-blue-500 mb-4" size={40} />
+            <span className={`text-xs font-bold uppercase tracking-widest ${styles.textSec}`}>Fetching Details...</span>
+        </div>
+    );
 
-    if (notFound || !session) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-4 absolute inset-0 z-[200]">
-                <div className="text-4xl mb-4">🤷</div>
-                <div className="text-white text-lg font-bold mb-4">Session not found</div>
-                <button 
-                    onClick={() => setCurrentView('workout')}
-                    className="bg-[#222] text-white px-6 py-2 rounded-xl font-semibold active:bg-[#333]"
-                >
-                    Go Back
-                </button>
-            </div>
-        );
-    }
+    if (notFound || !session) return (
+        <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center ${styles.bg}`}>
+            <div className="text-5xl mb-6">🤷</div>
+            <h2 className={`text-xl font-bold mb-6 ${styles.textMain}`}>Session not found</h2>
+            <button onClick={onBack} className={`px-8 py-3 rounded-2xl font-bold ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}>Go Back</button>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pb-24 overflow-y-auto absolute inset-0 z-[200]">
+        <div className={`fixed inset-0 z-[200] overflow-y-auto ${styles.bg}`}>
             {/* TOP BAR */}
-            <div className="flex items-center gap-3 px-4 pt-12 pb-4 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur z-50">
-                <button 
-                    onClick={() => setCurrentView('workout')}
-                    className="bg-[#222] rounded-full w-9 h-9 flex items-center justify-center text-white active:scale-95 transition-transform"
-                >
-                    <ChevronLeft size={20} />
-                </button>
-                <div className="text-xl font-bold text-white capitalize">
-                    {session.activityType} Session
-                </div>
+            <div className={`sticky top-0 z-50 px-4 pt-12 pb-4 flex items-center gap-4 border-b backdrop-blur-md ${theme === 'dark' ? 'bg-black/60 border-white/5' : 'bg-white/60 border-gray-100'}`}>
+                <button onClick={onBack} className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all active:scale-95 ${theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-100 border-gray-200 text-gray-800'}`}><ChevronLeft size={20} /></button>
+                <h1 className={`text-xl font-black capitalize ${styles.textMain}`}>{session.activityType} Session</h1>
             </div>
 
-            {/* MAP */}
+            {/* MAP VIEW */}
             {session.type === 'gps' && session.route && session.route.length > 1 && (
-                <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative z-0" style={{ height: '220px' }}>
-                    <MapContainer
-                        center={session.route[0]}
-                        zoom={15}
-                        zoomControl={false}
-                        attributionControl={false}
-                        scrollWheelZoom={false}
-                        dragging={false}
-                        className="w-full h-full"
-                    >
+                <div className="mx-4 mt-6 mb-6 rounded-[2.5rem] overflow-hidden border border-white/5 relative z-0 h-[240px] shadow-xl">
+                    <MapContainer center={session.route[0]} zoom={15} zoomControl={false} attributionControl={false} dragging={true} className="w-full h-full">
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                         <Polyline positions={session.route} pathOptions={{ color: '#22c55e', weight: 4 }} />
                         <CircleMarker center={session.route[0]} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1 }} radius={6} />
@@ -107,57 +65,48 @@ const WorkoutSessionDetailPage = ({ sessionId, setCurrentView }) => {
                 </div>
             )}
 
-            {/* STATS GRID */}
-            <div className="grid grid-cols-2 gap-3 mx-4 mb-4">
-                <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-[#4ade80] font-bold text-lg">{session.distance} km</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Distance</div>
-                </div>
-                <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-[#fbbf24] font-bold text-lg">{session.steps || Math.round(session.distance * 1350)}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Steps</div>
-                </div>
-                <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-[#60a5fa] font-bold text-lg">{session.type === 'gps' ? formatTime(session.duration) : `${session.duration} min`}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Duration</div>
-                </div>
-                <div className="bg-[#161616] rounded-2xl p-4 text-center">
-                    <div className="text-[#ff5733] font-bold text-lg">{session.caloriesBurned} kcal</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Burned</div>
+            {/* KEY STATS */}
+            <div className="grid grid-cols-2 gap-4 mx-4 mb-6">
+                <HighlightCard label="Distance" value={`${session.distance} km`} color="text-green-500" theme={theme} styles={styles} />
+                <HighlightCard label="Steps" value={session.steps || '--'} color="text-blue-500" theme={theme} styles={styles} />
+                <HighlightCard label="Duration" value={session.type === 'gps' ? formatTime(session.duration) : `${session.duration} min`} color="text-yellow-500" theme={theme} styles={styles} />
+                <HighlightCard label="Burned" value={`${session.caloriesBurned} kcal`} color="text-red-500" theme={theme} styles={styles} />
+            </div>
+
+            {/* DETAILED INFO */}
+            <div className={`mx-4 mb-10 rounded-[2.5rem] p-6 border ${styles.card} ${styles.border}`}>
+                <div className="space-y-5">
+                    <DetailRow icon={<Calendar size={18} />} label="Date" value={session.date.toDate().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} styles={styles} />
+                    <DetailRow icon={<Clock size={18} />} label="Time" value={session.date.toDate().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} styles={styles} />
+                    <DetailRow icon={<Activity size={18} />} label="Source" value={session.type === 'gps' ? '📍 GPS Tracked' : '✏️ Manual Entry'} styles={styles} />
                 </div>
             </div>
 
-            {/* DETAILS CARD */}
-            <div className="mx-4 mb-4 bg-[#161616] rounded-2xl p-4">
-                <div className="flex justify-between py-2 border-b border-[#2a2a2a]">
-                    <span className="text-sm text-gray-500">📅 Date</span>
-                    <span className="text-sm text-white font-medium">
-                        {session.date.toDate().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[#2a2a2a]">
-                    <span className="text-sm text-gray-500">⏰ Time</span>
-                    <span className="text-sm text-white font-medium">
-                        {session.date.toDate().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                </div>
-                <div className="flex justify-between py-2">
-                    <span className="text-sm text-gray-500">🏷️ Type</span>
-                    <span className="text-sm text-white font-medium">
-                        {session.type === 'gps' ? '📍 GPS Tracked' : '✏️ Manual'}
-                    </span>
-                </div>
-            </div>
-
-            {/* NOTES CARD */}
             {session.notes && (
-                <div className="mx-4 mb-4 bg-[#161616] rounded-2xl p-4">
-                    <div className="text-sm text-gray-500 mb-1">📝 Notes</div>
-                    <div className="text-white text-sm whitespace-pre-wrap">{session.notes}</div>
+                <div className={`mx-4 mb-10 rounded-[2.5rem] p-6 border ${styles.card} ${styles.border}`}>
+                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${styles.textSec}`}>Notes</h3>
+                    <p className={`text-sm leading-relaxed ${styles.textMain}`}>{session.notes}</p>
                 </div>
             )}
         </div>
     );
 };
+
+const HighlightCard = ({ label, value, color, theme, styles }) => (
+    <div className={`p-5 rounded-[2rem] border text-center transition-transform hover:scale-[1.02] ${styles.card} ${styles.border}`}>
+        <div className={`text-2xl font-black mb-1 ${color}`}>{value}</div>
+        <div className={`text-[10px] font-bold uppercase tracking-widest ${styles.textSec}`}>{label}</div>
+    </div>
+);
+
+const DetailRow = ({ icon, label, value, styles }) => (
+    <div className="flex items-center justify-between pb-4 border-b border-dashed border-gray-500/10 last:border-0 last:pb-0">
+        <div className="flex items-center gap-3">
+            <div className={`${styles.textSec}`}>{icon}</div>
+            <span className={`text-xs font-bold uppercase tracking-wider ${styles.textSec}`}>{label}</span>
+        </div>
+        <span className={`text-sm font-bold ${styles.textMain}`}>{value}</span>
+    </div>
+);
 
 export default WorkoutSessionDetailPage;

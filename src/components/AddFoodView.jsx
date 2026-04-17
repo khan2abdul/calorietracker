@@ -250,6 +250,20 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
     const [showQuickAddCustomize, setShowQuickAddCustomize] = useState(false);
     const [slowConnection, setSlowConnection] = useState(false);
 
+    // Initialize with editing food data
+    useEffect(() => {
+        if (editingFood) {
+            setQuery(editingFood.name);
+            setAiResult({
+                suggestions: [{
+                    ...editingFood,
+                    confidence: 1.0
+                }],
+                alternatives: []
+            });
+        }
+    }, [editingFood]);
+
     const inputRef = useRef(null);
     const searchInputRef = useRef(null);
     const analysisTimerRef = useRef(null);

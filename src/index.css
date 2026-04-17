@@ -169,6 +169,46 @@
     animation: scale-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+@keyframes ring-fill {
+    to {
+        stroke-dashoffset: var(--target-offset);
+    }
+}
+
+.animate-ring-fill {
+    animation: ring-fill 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Typography System */
+.hero-text {
+    font-size: 42px;
+    font-weight: 900;
+}
+
+.title-text {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.label-text {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.sub-label-text {
+    font-size: 11px;
+    font-weight: 400;
+    color: #888;
+}
+
+.caption-text {
+    font-size: 10px;
+    font-weight: 400;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 /* Voice Wave Animation */
 .animate-voice-wave>div {
     animation: wave 0.5s ease-in-out infinite;
@@ -267,7 +307,7 @@ body {
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #000;
+    background-color: #121212;
     /* Prevents white flash on load in dark mode */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

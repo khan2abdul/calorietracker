@@ -214,7 +214,7 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                             const hasExercises = day.exercises && day.exercises.length > 0;
                             return hasCalories || hasBurned || hasWater || hasFood || hasExercises;
                         }).map((day) => (
-                            <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-5 rounded-[2rem] border transition-all hover:scale-[1.01] active:scale-95 ${theme === 'dark' ? 'bg-[#2C2C2E]/50 border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-gray-100 shadow-sm')}`}>
+                            <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-5 rounded-[2rem] border transition-all hover:scale-[1.01] active:scale-95 ${styles.card} ${styles.border}`}>
                                 <div className="flex justify-between items-center mb-4 border-b pb-3 border-dashed border-gray-200/20">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>

@@ -83,7 +83,7 @@ export function useWorkoutHistory() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [auth.currentUser]);
 
     // Update paginated view when visibleCount or allSessions changes
     useEffect(() => {
