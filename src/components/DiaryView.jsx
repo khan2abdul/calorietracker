@@ -205,7 +205,7 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                 {loading ? (
                     <div className="text-center py-10 opacity-50">Loading receipts...</div>
                 ) : history.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {history.filter(day => {
                             const hasCalories = (day.totals?.cals || 0) > 0;
                             const hasBurned = (day.burned || 0) > 0;
@@ -214,47 +214,47 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                             const hasExercises = day.exercises && day.exercises.length > 0;
                             return hasCalories || hasBurned || hasWater || hasFood || hasExercises;
                         }).map((day) => (
-                            <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-5 rounded-[2rem] border transition-all hover:scale-[1.01] active:scale-95 ${styles.card} ${styles.border}`}>
-                                <div className="flex justify-between items-center mb-4 border-b pb-3 border-dashed border-gray-200/20">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
-                                            <span className={`text-[10px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                            <span className={`text-lg font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
+                            <div key={day.date} onClick={() => onDayClick(day)} className={`cursor-pointer p-3.5 rounded-[1.25rem] border transition-all hover:scale-[1.01] active:scale-95 ${styles.card} ${styles.border}`}>
+                                <div className="flex justify-between items-center mb-2.5 border-b pb-2 border-dashed border-gray-200/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                                            <span className={`text-[8px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                            <span className={`text-base font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
                                         </div>
                                         <div>
-                                            <p className={`text-sm font-bold ${styles.textMain}`}>{new Date(day.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
-                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
+                                            <p className={`text-[12px] font-bold ${styles.textMain}`}>{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                            <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full w-fit mt-0.5 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
                                                 {getVibe(day.totals?.cals || 0, day.burned || 0)}
                                             </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-2xl font-black ${styles.textMain}`}>{day.totals?.cals || 0}</span>
-                                        <p className={`text-[10px] font-bold uppercase ${styles.textSec}`}>Calories</p>
+                                        <span className={`text-lg font-black ${styles.textMain}`}>{day.totals?.cals || 0}</span>
+                                        <p className={`text-[8px] font-bold uppercase ${styles.textSec}`}>Calories</p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-2 mb-4">
-                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
-                                        <span className={`text-[10px] font-bold uppercase text-blue-500 mb-1`}>Protein</span>
-                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.pro || 0)}g</span>
+                                <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+                                    <div className={`p-1 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'}`}>
+                                        <span className={`text-[8px] font-bold uppercase text-blue-500 mb-0.5`}>Pro</span>
+                                        <span className={`text-sm font-black ${styles.textMain}`}>{Math.round(day.totals?.pro || 0)}g</span>
                                     </div>
-                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-100'}`}>
-                                        <span className={`text-[10px] font-bold uppercase text-green-500 mb-1`}>Carbs</span>
-                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.carb || 0)}g</span>
+                                    <div className={`p-1 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-green-500/5 border-green-500/10' : 'bg-green-50 border-green-100'}`}>
+                                        <span className={`text-[8px] font-bold uppercase text-green-500 mb-0.5`}>Carb</span>
+                                        <span className={`text-sm font-black ${styles.textMain}`}>{Math.round(day.totals?.carb || 0)}g</span>
                                     </div>
-                                    <div className={`p-2 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
-                                        <span className={`text-[10px] font-bold uppercase text-orange-500 mb-1`}>Fat</span>
-                                        <span className={`text-lg font-bold ${styles.textMain}`}>{Math.round(day.totals?.fat || 0)}g</span>
+                                    <div className={`p-1 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-100'}`}>
+                                        <span className={`text-[8px] font-bold uppercase text-orange-500 mb-0.5`}>Fat</span>
+                                        <span className={`text-sm font-black ${styles.textMain}`}>{Math.round(day.totals?.fat || 0)}g</span>
                                     </div>
                                 </div>
 
-                                <div className={`flex items-center justify-between pt-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
-                                    <div className="flex items-center gap-2">
-                                        <Flame size={14} className="fill-current" />
-                                        <span className="text-xs font-bold uppercase">Burned</span>
+                                <div className={`flex items-center justify-between pt-0.5 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                                    <div className="flex items-center gap-1.5">
+                                        <Flame size={11} className="fill-current" />
+                                        <span className="text-[9px] font-bold uppercase">Burned</span>
                                     </div>
-                                    <span className="text-sm font-bold">{day.burned || 0} kcal</span>
+                                    <span className="text-[11px] font-bold">{day.burned || 0} kcal</span>
                                 </div>
                             </div>
                         ))}

@@ -48,26 +48,16 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
                 </div>
             </div>
 
-            {/* ── SECTION 3: TWO CTA CARDS ── */}
-            <div className="flex gap-3 mx-4 mb-5">
-                <div className={`flex-1 rounded-2xl p-4 min-h-[160px] flex flex-col border ${theme === 'dark' ? 'bg-[#0d2e1a] border-[#2a7a40]' : 'bg-green-50 border-green-200'}`}>
-                    <div className="text-3xl mb-2">📍</div>
-                    <div className={`${theme === 'dark' ? 'text-[#4ade80]' : 'text-green-700'} font-bold text-sm mb-1`}>Start Tracking</div>
-                    <div className={`text-[11px] leading-4 flex-1 ${theme === 'dark' ? 'text-gray-400' : 'text-green-600/70'}`}>Live GPS map with auto calorie burn</div>
+            {/* ── SECTION 3: SINGLE CTA CARD ── */}
+            <div className="mx-4 mb-5">
+                <div className={`rounded-3xl p-6 min-h-[140px] flex flex-row items-center gap-6 border transition-all active:scale-[0.98] ${theme === 'dark' ? 'bg-[#0d1e3a] border-[#2a4a8a]' : 'bg-blue-50 border-blue-200 shadow-sm'}`}>
+                    <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-4xl shrink-0">✏️</div>
+                    <div className="flex-1">
+                        <div className={`${theme === 'dark' ? 'text-[#60a5fa]' : 'text-blue-700'} font-black text-lg mb-1`}>Log Activity</div>
+                        <div className={`text-xs leading-4 ${theme === 'dark' ? 'text-gray-400' : 'text-blue-600/70'}`}>Add manual workouts to your daily burn</div>
+                    </div>
                     <button 
-                        className={`mt-4 font-bold text-sm rounded-xl py-2 w-full transition-transform active:scale-95 ${theme === 'dark' ? 'bg-[#22c55e] text-black' : 'bg-green-500 text-white'}`}
-                        onClick={onStartTracking}
-                    >
-                        ▶ Start GPS
-                    </button>
-                </div>
-
-                <div className={`flex-1 rounded-2xl p-4 min-h-[160px] flex flex-col border ${theme === 'dark' ? 'bg-[#0d1e3a] border-[#2a4a8a]' : 'bg-blue-50 border-blue-200'}`}>
-                    <div className="text-3xl mb-2">✏️</div>
-                    <div className={`${theme === 'dark' ? 'text-[#60a5fa]' : 'text-blue-700'} font-bold text-sm mb-1`}>Log Activity</div>
-                    <div className={`text-[11px] leading-4 flex-1 ${theme === 'dark' ? 'text-gray-400' : 'text-blue-600/70'}`}>Manually log any workout</div>
-                    <button 
-                        className={`mt-4 font-bold text-sm rounded-xl py-2 w-full transition-transform active:scale-95 ${theme === 'dark' ? 'bg-[#3b82f6] text-white' : 'bg-blue-500 text-white'}`}
+                        className={`font-black text-sm rounded-2xl px-6 py-3 transition-all ${theme === 'dark' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'bg-blue-500 text-white'}`}
                         onClick={() => { setEditingSession(null); setShowManualSheet(true); }}
                     >
                         + Log Now
