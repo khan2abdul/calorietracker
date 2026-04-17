@@ -203,6 +203,24 @@ const DashboardPage = ({
                 </div>
             </div>
 
+            {/* Block 0: Goal Projection */}
+            {userStats.targetWeight && (
+                <div className={`rounded-[2rem] p-4 border shadow-md transition-all active:scale-[0.98] ${styles.card} ${styles.border}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2.5 rounded-2xl ${theme === 'dark' ? 'bg-green-500/20 text-green-400' : 'bg-green-50 text-green-600'}`}>
+                                <TrendingDown size={20} />
+                            </div>
+                            <div className="flex flex-col">
+                                <p className={`text-[9px] font-bold uppercase tracking-tight opacity-50 ${styles.textMain}`}>Estimated Goal Date</p>
+                                <p className={`text-xs font-bold ${styles.textMain}`}>Reach <span className="text-[#ff5733]">{userStats.targetWeight}kg</span></p>
+                            </div>
+                        </div>
+                        <div className={`text-lg font-black tracking-tighter ${styles.textMain}`}>{estimateDate || '--'}</div>
+                    </div>
+                </div>
+            )}
+
             {/* Block 1: Ring Card */}
             <div className={`rounded-[2rem] p-[20px] shadow-lg transition-shadow duration-500 cursor-pointer active:scale-[0.98] transition-transform ${styles.card} ${styles.border} ${totals.cals > goal ? 'shadow-red-500/10' : 'shadow-green-500/10'}`}>
                 <ActivityRings 
@@ -449,24 +467,6 @@ const DashboardPage = ({
                         </div>
                     )}
                 </div>
-
-                {/* Target Date */}
-                {userStats.targetWeight && (
-                    <div className={`mt-6 pt-6 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-200/50'}`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-xl ${theme === 'dark' ? 'bg-green-500/10 text-green-500' : 'bg-green-50 text-green-600'}`}>
-                                    <TrendingDown size={20} />
-                                </div>
-                                <div className="flex flex-col">
-                                    <p className={`text-[10px] font-bold uppercase tracking-tight opacity-50 ${styles.textMain}`}>Estimated Goal Date</p>
-                                    <p className={`text-xs font-bold ${styles.textMain}`}>Reach <span className="text-[#ff5733]">{userStats.targetWeight}kg</span></p>
-                                </div>
-                            </div>
-                            <div className={`text-lg font-black tracking-tighter ${styles.textMain}`}>{estimateDate || '--'}</div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
