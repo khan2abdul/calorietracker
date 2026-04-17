@@ -26,6 +26,7 @@ const ConfirmModal = lazy(() => import('./components/ConfirmModal'));
 const EditDayModal = lazy(() => import('./components/Dashboard/EditDayModal'));
 const FoodDetailModal = lazy(() => import('./components/Dashboard/FoodItem').then(m => ({ default: m.FoodDetailModal })));
 const DailyDetailModal = lazy(() => import('./components/Dashboard/DailyDetailModal'));
+const DailyStatsPage = lazy(() => import('./pages/DailyStatsPage'));
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component {
@@ -80,7 +81,8 @@ function MainApp() {
     } = useFoodLogs(user, currentDate);
     
     const { addActivity, deleteActivity } = useActivities(user, currentDate);
-    const { totalBurned } = useTodayBurned(currentDate);
+    const burnMetrics = useTodayBurned(currentDate);
+    const { totalBurned } = burnMetrics;
 
     const [userStats, setUserStats] = useState({
         weight: 70, height: 170, age: 25, activity: 'moderate',
@@ -230,7 +232,21 @@ function MainApp() {
                         currentDate={currentDate}
                         setCurrentDate={setCurrentDate}
                         onDeleteExercise={deleteActivity}
-                        onRingClick={() => setShowDayDetail(true)}
+                        onRingClick={() => setCurrentView('stats')}
+                    />
+                )}
+            </Suspense>
+
+            <Suspense fallback={<div className="flex items-center justify-center p-20"><Loader2 className="animate-spin text-blue-500" /></div>}>
+                {currentView === 'stats' && (
+                    <DailyStatsPage 
+                        totals={totals}
+                        goal={userStats.goalCals || 2000}
+                        waterIntake={waterIntake}
+                        burnMetrics={burnMetrics}
+                        theme={theme}
+                        userStats={userStats}
+                        onBack={() => setCurrentView('home')}
                     />
                 )}
             </Suspense>

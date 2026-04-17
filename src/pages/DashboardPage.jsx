@@ -236,11 +236,11 @@ const DashboardPage = ({
             {/* Block 3: Macros Card */}
             <div className={`rounded-[2rem] p-[20px] shadow-lg ${styles.card} ${styles.border}`}>
                 <div className="flex justify-between items-center mb-3 px-1">
-                    <span className="caption-text">Macros</span>
+                    <span className="text-[10px] uppercase font-bold text-[#888] tracking-[1.5px]">Macros</span>
                 </div>
-                <div className="flex gap-[6px] h-[75px]">
+                <div className="flex gap-2">
                     <div className="flex-1 min-w-0"><MacroMiniCard label="Carbs" value={totals.carb} max={250} color="#F5C542" icon="🍞" /></div>
-                    <div className="flex-1 min-w-0"><MacroMiniCard label="Protein" value={totals.pro} max={180} color="#4A90D9" icon="🍗" /></div>
+                    <div className="flex-1 min-w-0"><MacroMiniCard label="Protein" value={totals.pro} min={0} max={180} color="#4A90D9" icon="🍗" /></div>
                     <div className="flex-1 min-w-0"><MacroMiniCard label="Fat" value={totals.fat} max={80} color="#E0607E" icon="🥑" /></div>
                 </div>
             </div>

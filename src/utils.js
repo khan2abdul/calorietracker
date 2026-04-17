@@ -41,21 +41,26 @@ export const getTimeBasedMeal = () => {
 };
 
 /**
- * Calculates Goal Calories using Mifflin-St Jeor Formula
+ * Calculate BMR using Mifflin-St Jeor Formula
  */
-export const calculateGoalCals = (stats) => {
-    const { weight, height, age, gender, activity, targetWeight, targetDays } = stats;
-    if (!weight || !height || !age) return 2000;
-
-    // 1. Calculate BMR
-    let bmr;
+export const calculateBMR = (stats) => {
+    const { weight, height, age, gender } = stats;
+    if (!weight || !height || !age) return 0;
+    
     if (gender === 'female') {
-        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+        return (10 * weight) + (6.25 * height) - (5 * age) - 161;
     } else {
-        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+        return (10 * weight) + (6.25 * height) - (5 * age) + 5;
     }
+};
 
-    // 2. Activity Multiplier
+/**
+ * Calculate TDEE based on activity levels
+ */
+export const calculateTDEE = (stats) => {
+    const bmr = calculateBMR(stats);
+    if (bmr === 0) return 0;
+    
     const multipliers = {
         sedentary: 1.2,
         light: 1.375,
@@ -63,7 +68,17 @@ export const calculateGoalCals = (stats) => {
         active: 1.725,
         extreme: 1.9
     };
-    const tdee = bmr * (multipliers[activity] || 1.2);
+    return bmr * (multipliers[stats.activity] || 1.2);
+};
+
+/**
+ * Calculates Goal Calories using Mifflin-St Jeor Formula
+ */
+export const calculateGoalCals = (stats) => {
+    const tdee = calculateTDEE(stats);
+    if (tdee === 0) return 2000;
+
+    const { weight, targetWeight, targetDays } = stats;
 
     // 3. Weight Diff Deficit/Surplus
     if (targetWeight && targetWeight !== weight && targetDays && targetDays !== 'Auto') {
