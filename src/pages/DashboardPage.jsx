@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-    Activity, Sun, Moon, TreeDeciduous, Utensils, Edit2, Minus, Plus, Flame, Trash2, TrendingDown, CheckSquare 
+    Activity, Sun, Moon, TreeDeciduous, Utensils, Edit2, Minus, Plus, Flame, Trash2, TrendingDown, CheckSquare,
+    ChevronLeft, ChevronRight, Calendar as CalendarIcon
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { query, collection, where, onSnapshot } from 'firebase/firestore';
@@ -144,16 +145,56 @@ const DashboardPage = ({
     const waterConsumed = waterIntake * 250;
     const netCalChange = totals.cals - totalBurned;
 
+    const changeDate = (offset) => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + offset);
+        setCurrentDate(newDate);
+    };
+
+    const isToday = new Date().toDateString() === currentDate.toDateString();
+
     return (
         <div className="flex flex-col pb-32 animate-fade-in px-6 pt-5 gap-[10px]" style={{ backgroundColor: styles.bg, maxWidth: '430px', margin: '0 auto' }}>
+            {/* Header with Date Navigation */}
             <div className="flex justify-between items-start pt-[10px] mb-2">
-                <div>
+                <div className="flex-1">
                     <h1 className={`title-text ${styles.textMain}`}>
                         {getGreeting()}, {userName} 👋
                     </h1>
-                    <p className="sub-label-text mt-0.5">
-                        {currentDate.toLocaleDateString('en-US', { weekday: 'long' })}, {currentDate.getDate()} {currentDate.toLocaleDateString('en-US', { month: 'long' })}
-                    </p>
+                    
+                    <div className="flex items-center gap-3 mt-1 underline-offset-4">
+                        <button 
+                            onClick={() => changeDate(-1)} 
+                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white shadow-sm' : 'bg-gray-100 hover:bg-gray-200 text-gray-800 shadow-sm'}`}
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+
+                        <div className="flex flex-col items-center justify-center min-w-[110px]">
+                            <p className={`text-[12px] font-black uppercase tracking-[1px] leading-tight ${styles.textMain}`}>
+                                {isToday ? 'Today' : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </p>
+                            <p className={`text-[9px] font-bold opacity-40 uppercase tracking-tighter mt-0.5 ${styles.textSec}`}>
+                                {currentDate.toLocaleDateString('en-US', { weekday: 'short' })}, {currentDate.getDate()} {currentDate.toLocaleDateString('en-US', { month: 'short' })}
+                            </p>
+                        </div>
+
+                        <button 
+                            onClick={() => changeDate(1)} 
+                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white shadow-sm' : 'bg-gray-100 hover:bg-gray-200 text-gray-800 shadow-sm'}`}
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+
+                        {!isToday && (
+                            <button 
+                                onClick={() => setCurrentDate(new Date())}
+                                className={`ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all active:scale-95 ${theme === 'dark' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-blue-500 text-white shadow-md'}`}
+                            >
+                                Reset
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={toggleTheme} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors border shadow-sm ${theme === 'wooden' ? 'bg-[#EAD8B1] border-[#8B4513]/20 text-[#3E2723]' : (theme === 'dark' ? 'bg-[#1e1e1e] border-white/5 text-white' : 'bg-white border-gray-100 text-slate-800')}`}>
