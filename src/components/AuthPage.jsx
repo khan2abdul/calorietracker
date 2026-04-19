@@ -1,19 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, checkConnection } from '../firebase.js';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import gymBg from '../assets/gym_bg.png';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const AuthPage = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+    const [captchaToken, setCaptchaToken] = useState(null);
+    const recaptchaRef = useRef(null);
+    const recaptchaWidgetId = useRef(null);
+
+    // Render or reset reCAPTCHA widget
+    useEffect(() => {
+        let timeoutId;
+        let cancelled = false;
+
+        const initCaptcha = () => {
+            if (cancelled || !recaptchaRef.current) return;
+
+            if (!window.grecaptcha?.render) {
+                // Script not loaded yet, retry
+                timeoutId = setTimeout(initCaptcha, 300);
+                return;
+            }
+
+            setCaptchaToken(null);
+
+            if (recaptchaWidgetId.current !== null) {
+                // Widget already rendered — just reset it
+                try {
+                    window.grecaptcha.reset(recaptchaWidgetId.current);
+                } catch (e) { /* ignore */ }
+            } else {
+                // First render
+                try {
+                    recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
+                        sitekey: RECAPTCHA_SITE_KEY,
+                        callback: (token) => setCaptchaToken(token),
+                        'expired-callback': () => setCaptchaToken(null),
+                        theme: 'dark',
+                        size: 'normal',
+                    });
+                } catch (e) {
+                    console.error('reCAPTCHA render error:', e);
+                }
+            }
+        };
+
+        initCaptcha();
+
+        return () => {
+            cancelled = true;
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [isLogin]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
+
+        // Verify captcha is completed
+        if (!captchaToken) {
+            setError('Please complete the reCAPTCHA verification.');
+            return;
+        }
+
+        setLoading(true);
 
         if (!auth) {
             console.log("Auth not initialized, checking connection...");
@@ -47,6 +104,12 @@ const AuthPage = () => {
             else if (err.code === 'auth/network-request-failed') msg = "Network error. Check your connection.";
             else msg = `Error: ${err.message} (${err.code || 'unknown'})`;
             setError(msg);
+
+            // Reset captcha on error so user must re-verify
+            if (recaptchaWidgetId.current !== null) {
+                try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (e) { /* ignore */ }
+            }
+            setCaptchaToken(null);
         } finally {
             setLoading(false);
         }
@@ -110,10 +173,19 @@ const AuthPage = () => {
                         />
                     </div>
 
+                    {/* Google reCAPTCHA v2 */}
+                    <div className="flex justify-center">
+                        <div ref={recaptchaRef} id="recaptcha-container"></div>
+                    </div>
+
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transform transition-all active:scale-95 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+                        disabled={loading || !captchaToken}
+                        className={`w-full py-4 rounded-2xl font-bold text-white transform transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 ${
+                            captchaToken 
+                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/25' 
+                                : 'bg-gray-600 cursor-not-allowed opacity-60'
+                        }`}
                     >
                         {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
                         {!loading && <ArrowRight size={20} />}

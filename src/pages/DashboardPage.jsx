@@ -131,6 +131,9 @@ const DashboardPage = ({
         cycling: '🚴',
         skipping: '🦘',
         gym: '🏋️',
+        hiit: '🔥',
+        cardio: '❤️‍🔥',
+        exercise: '💪',
         other: '⚡'
     };
 
@@ -424,12 +427,6 @@ const DashboardPage = ({
                                 {/* Actions Background */}
                                 <div className={`absolute inset-0 flex items-center justify-end px-4 gap-2 ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
                                     <button
-                                        onClick={() => onEditExercise(item)}
-                                        className={`p-2 rounded-full ${theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
                                         onClick={() => onDeleteExercise(item.id)}
                                         className={`p-2.5 rounded-full ${theme === 'dark' ? 'bg-red-500/20 text-red-500' : 'bg-red-100 text-red-600'} transition-transform active:scale-90`}
                                     >
@@ -440,7 +437,7 @@ const DashboardPage = ({
                                 {/* Content Foreground */}
                                 <div
                                     className={`relative p-4 flex justify-between items-center transition-transform duration-300 border ${theme === 'dark' ? 'bg-[#1C1C1E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1]/50 border-[#8B4513]/10' : 'bg-white border-slate-100 shadow-sm')}`}
-                                    style={{ transform: swipedExerciseId === item.id ? 'translateX(-110px)' : 'translateX(0)' }}
+                                    style={{ transform: swipedExerciseId === item.id ? 'translateX(-60px)' : 'translateX(0)' }}
                                     onClick={() => swipedExerciseId === item.id && setSwipedExerciseId(null)}
                                 >
                                     <div className="flex items-center gap-4">

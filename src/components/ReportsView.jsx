@@ -58,9 +58,8 @@ const ReportsView = ({ theme, user }) => {
                     const actData = doc.data();
                     const docTime = actData.date?.toMillis ? actData.date.toMillis() : 0;
                     if (docTime > 0) {
-                        // Keep consistent with local timezone bounds formatting
                         const actDate = new Date(docTime);
-                        const actDateStr = new Date(docTime - actDate.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                        const actDateStr = `${actDate.getFullYear()}-${String(actDate.getMonth() + 1).padStart(2, '0')}-${String(actDate.getDate()).padStart(2, '0')}`;
                         if (!actMap[actDateStr]) actMap[actDateStr] = [];
                         actMap[actDateStr].push({ id: doc.id, ...actData });
                     }
@@ -69,8 +68,7 @@ const ReportsView = ({ theme, user }) => {
                 const data = [];
                 // Iterate from start to end to ensure all days are covered
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                    // Standardize timezone string like en-CA does
-                    const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     const docData = fetchedData[dateStr] || {};
                     const burned = docData.burned || (docData.exercises ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0) : 0);
                     const consumed = docData.totals?.cals || 0;

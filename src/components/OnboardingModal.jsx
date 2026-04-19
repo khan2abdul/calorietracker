@@ -4,7 +4,7 @@ import { THEMES } from '../theme';
 
 const TARGET_DAY_OPTIONS = [30, 45, 60, 75, 90];
 
-const OnboardingModal = ({ userStats, onSave, theme }) => {
+const OnboardingModal = ({ userStats, onComplete, theme }) => {
     const [stats, setStats] = useState(userStats || { age: '', weight: '', height: '', targetWeight: '', targetDays: 90 });
     const styles = THEMES[theme];
 
@@ -14,7 +14,7 @@ const OnboardingModal = ({ userStats, onSave, theme }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(stats);
+        onComplete(stats);
     };
 
     return (

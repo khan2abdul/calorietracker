@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../firebase';
 import { doc, getDoc, collection, addDoc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
-console.log("ManualLogSheet-v3: Firestore functions imported:", { addDoc: !!addDoc, setDoc: !!setDoc });
 import { X, Loader2 } from 'lucide-react';
 
-const ManualLogSheet = ({ isOpen, onClose, editActivity = null }) => {
+const ManualLogSheet = ({ isOpen, onClose, editActivity = null, currentDate = null }) => {
     const [userWeight, setUserWeight] = useState(70);
     const [selectedActivity, setSelectedActivity] = useState('walking');
     const [duration, setDuration] = useState('');
@@ -54,7 +53,9 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null }) => {
 
     const handleActivityChange = (activity) => {
         setSelectedActivity(activity);
-        if (activity === 'skipping' || activity === 'gym') {
+        // Activities that don't use distance
+        const durationOnlyActivities = ['skipping', 'gym', 'hiit', 'cardio', 'exercise'];
+        if (durationOnlyActivities.includes(activity)) {
             setDistance('');
             setDistanceError('');
         }
@@ -64,22 +65,33 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null }) => {
         const w = userWeight;
         const dist = parseFloat(distance) || 0;
         const dur = parseFloat(duration) || 0;
-        let burn = 0;
 
-        if (selectedActivity === "walking") {
-            burn = dist > 0 ? dist * w * 0.9 : dur * w * 0.05;
-        } else if (selectedActivity === "running") {
-            burn = dist > 0 ? dist * w * 1.1 : dur * w * 0.10;
-        } else if (selectedActivity === "skipping") {
-            burn = dur * w * 0.12;
-        } else if (selectedActivity === "cycling") {
-            burn = dist > 0 ? dist * w * 0.5 : dur * w * 0.06;
-        } else if (selectedActivity === "gym") {
-            burn = dur * w * 0.08;
-        } else {
-            burn = dur * w * 0.06;
+        // MET values (Metabolic Equivalent of Task)
+        // Calories = MET × weight(kg) × duration(hours)
+        // = MET × weight(kg) × duration(min) / 60
+        const MET = {
+            walking:  3.5,   // 3.5 MET — moderate pace walking
+            running:  9.8,   // 9.8 MET — ~6 min/km pace jogging
+            skipping: 12.3,  // 12.3 MET — vigorous jump rope
+            cycling:  7.5,   // 7.5 MET — moderate cycling
+            gym:      5.0,   // 5.0 MET — general weight training
+            hiit:     10.0,  // 10.0 MET — high intensity interval training
+            cardio:   7.0,   // 7.0 MET — general aerobic exercise
+            exercise: 5.5,   // 5.5 MET — general conditioning
+            other:    4.0,   // 4.0 MET — light-to-moderate fallback
+        };
+
+        const met = MET[selectedActivity] || 4.0;
+
+        // Distance-based override for walking/running/cycling
+        // Uses empirical energy-cost-per-km when distance is available
+        if (dist > 0 && ['walking', 'running', 'cycling'].includes(selectedActivity)) {
+            const costPerKm = { walking: 0.9, running: 1.1, cycling: 0.5 };
+            return Math.round(dist * w * (costPerKm[selectedActivity] || 0.7));
         }
-        return Math.round(burn);
+
+        // MET-based formula: kcal = MET × weight(kg) × duration(min) / 60
+        return Math.round(met * w * dur / 60);
     }, [userWeight, distance, duration, selectedActivity]);
 
     const handleSave = async () => {
@@ -128,7 +140,7 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null }) => {
                 // CREATE
                 await addDoc(collection(db, 'activities'), {
                     ...activityData,
-                    date: Timestamp.now(),
+                    date: currentDate ? Timestamp.fromDate(currentDate) : Timestamp.now(),
                     type: "manual",
                     route: [],
                     createdAt: serverTimestamp()
@@ -154,14 +166,17 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null }) => {
 
 
 
-    const showDistanceField = selectedActivity !== 'skipping' && selectedActivity !== 'gym';
+    const showDistanceField = !['skipping', 'gym', 'hiit', 'cardio', 'exercise'].includes(selectedActivity);
 
     const activities = [
         { id: 'walking', label: 'Walking', icon: '🚶' },
         { id: 'running', label: 'Running', icon: '🏃' },
-        { id: 'skipping', label: 'Skipping', icon: '⏭️' },
         { id: 'cycling', label: 'Cycling', icon: '🚴' },
+        { id: 'hiit', label: 'HIIT', icon: '🔥' },
+        { id: 'cardio', label: 'Cardio', icon: '❤️‍🔥' },
+        { id: 'exercise', label: 'Exercise', icon: '💪' },
         { id: 'gym', label: 'Gym', icon: '🏋️' },
+        { id: 'skipping', label: 'Skipping', icon: '⏭️' },
         { id: 'other', label: 'Other', icon: '⚡' }
     ];
 

@@ -18,6 +18,13 @@ export function useFoodLogs(user, currentDate) {
         const dateStr = getLocalDateStr(currentDate);
         const logDoc = doc(db, 'users', user.uid, 'daily_logs', dateStr);
         
+        // Clear stale state immediately when date changes to prevent
+        // old day's meals from showing under the new date
+        setLogs({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
+        setWaterIntake(0);
+        // Reset latency guard so the new date's snapshot is not rejected
+        lastUpdateRef.current = 0;
+        
         const unsub = onSnapshot(logDoc, (snap) => {
             console.log("Firestore Snapshot received for:", dateStr, "Exists:", snap.exists());
             if (snap.exists()) {

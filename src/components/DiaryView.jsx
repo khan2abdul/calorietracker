@@ -218,11 +218,11 @@ const DiaryView = ({ theme, user, onDayClick }) => {
                                 <div className="flex justify-between items-center mb-2.5 border-b pb-2 border-dashed border-gray-200/20">
                                     <div className="flex items-center gap-2">
                                         <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
-                                            <span className={`text-[8px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                            <span className={`text-base font-bold ${styles.textMain}`}>{new Date(day.date).getDate()}</span>
+                                            <span className={`text-[8px] uppercase font-bold ${styles.textSec}`}>{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                            <span className={`text-base font-bold ${styles.textMain}`}>{new Date(day.date + 'T00:00:00').getDate()}</span>
                                         </div>
                                         <div>
-                                            <p className={`text-[12px] font-bold ${styles.textMain}`}>{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                            <p className={`text-[12px] font-bold ${styles.textMain}`}>{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                                             <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full w-fit mt-0.5 ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
                                                 {getVibe(day.totals?.cals || 0, day.burned || 0)}
                                             </div>

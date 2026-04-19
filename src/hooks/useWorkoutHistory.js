@@ -8,6 +8,9 @@ export const activityEmoji = {
     skipping: '⏭️',
     cycling: '🚴',
     gym: '🏋️',
+    hiit: '🔥',
+    cardio: '❤️‍🔥',
+    exercise: '💪',
     other: '⚡'
 };
 

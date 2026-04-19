@@ -120,6 +120,20 @@ function MainApp() {
         document.documentElement.className = theme;
     }, [theme]);
 
+    // Auto-reset currentDate at midnight so food logs go to the correct day
+    useEffect(() => {
+        const checkDateChange = () => {
+            const now = new Date();
+            if (now.toDateString() !== currentDate.toDateString() && 
+                // Only auto-reset if user was viewing "today" (not browsing history)
+                new Date(Date.now() - 86400000).toDateString() === currentDate.toDateString()) {
+                setCurrentDate(new Date());
+            }
+        };
+        const interval = setInterval(checkDateChange, 60000); // Check every minute
+        return () => clearInterval(interval);
+    }, [currentDate]);
+
     useEffect(() => {
         if (!user) return;
         const userDoc = doc(db, 'users', user.uid);

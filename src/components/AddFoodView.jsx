@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Sparkles, Mic, ArrowRight, Plus, Search, ScanLine, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp } from 'lucide-react';
+import { X, Sparkles, Mic, ArrowRight, Plus, Search, ScanLine, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp, Loader2 } from 'lucide-react';
 import { THEMES } from '../theme';
 
 // ==========================================
@@ -19,74 +19,170 @@ const PLACEHOLDER_EXAMPLES = [
 // Quick add items categorized by meal type
 const QUICK_ADD_BY_MEAL = {
     Breakfast: [
-        { name: "Tea", portion: "1 cup, 200ml", calories: 45, protein: 1, carbs: 6, fat: 1.5 },
-        { name: "Coffee", portion: "1 cup, 200ml", calories: 5, protein: 0.3, carbs: 0, fat: 0 },
-        { name: "Milk", portion: "1 glass, 250ml", calories: 150, protein: 8, carbs: 12, fat: 8 },
-        { name: "Boiled Egg", portion: "1 large", calories: 78, protein: 6, carbs: 0.5, fat: 5 },
-        { name: "Banana", portion: "1 medium, 120g", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
-        { name: "Apple", portion: "1 medium, 180g", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
-        { name: "Bread Toast", portion: "2 slices", calories: 160, protein: 5, carbs: 30, fat: 2.5 },
-        { name: "Omelette", portion: "2 eggs", calories: 180, protein: 12, carbs: 2, fat: 14 },
-        { name: "Paratha", portion: "1 medium, 60g", calories: 180, protein: 4, carbs: 25, fat: 7 },
-        { name: "Upma", portion: "1 bowl, 150g", calories: 220, protein: 6, carbs: 35, fat: 7 },
-        { name: "Poha", portion: "1 bowl, 150g", calories: 200, protein: 4, carbs: 38, fat: 5 },
-        { name: "Idli", portion: "2 pieces", calories: 120, protein: 4, carbs: 24, fat: 0.5 }
+        { name: "Tea", icon: "🍵", portion: "1 cup, 200ml", calories: 45, protein: 1, carbs: 6, fat: 1.5 },
+        { name: "Coffee", icon: "☕", portion: "1 cup, 200ml", calories: 5, protein: 0.3, carbs: 0, fat: 0 },
+        { name: "Milk", icon: "🥛", portion: "1 glass, 250ml", calories: 150, protein: 8, carbs: 12, fat: 8 },
+        { name: "Boiled Egg", icon: "🥚", portion: "1 large", calories: 78, protein: 6, carbs: 0.5, fat: 5 },
+        { name: "Banana", icon: "🍌", portion: "1 medium, 120g", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
+        { name: "Apple", icon: "🍎", portion: "1 medium, 180g", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+        { name: "Bread Toast", icon: "🍞", portion: "2 slices", calories: 160, protein: 5, carbs: 30, fat: 2.5 },
+        { name: "Omelette", icon: "🍳", portion: "2 eggs", calories: 180, protein: 12, carbs: 2, fat: 14 },
+        { name: "Paratha", icon: "🫓", portion: "1 medium, 60g", calories: 180, protein: 4, carbs: 25, fat: 7 },
+        { name: "Upma", icon: "🥣", portion: "1 bowl, 150g", calories: 220, protein: 6, carbs: 35, fat: 7 },
+        { name: "Poha", icon: "🍛", portion: "1 bowl, 150g", calories: 200, protein: 4, carbs: 38, fat: 5 },
+        { name: "Idli", icon: "🫕", portion: "2 pieces", calories: 120, protein: 4, carbs: 24, fat: 0.5 }
     ],
     Lunch: [
-        { name: "Cooked Rice", portion: "1 bowl, 150g", calories: 195, protein: 4, carbs: 45, fat: 0.4 },
-        { name: "Roti", portion: "1 medium, 40g", calories: 120, protein: 3, carbs: 25, fat: 1 },
-        { name: "Dal", portion: "1 bowl, 150g", calories: 150, protein: 9, carbs: 20, fat: 3 },
-        { name: "Chicken Curry", portion: "150g", calories: 280, protein: 25, carbs: 8, fat: 18 },
-        { name: "Paneer", portion: "100g", calories: 265, protein: 18, carbs: 3, fat: 20 },
-        { name: "Curd", portion: "1 bowl, 100g", calories: 60, protein: 3, carbs: 5, fat: 3 },
-        { name: "Sabzi", portion: "1 bowl, 150g", calories: 120, protein: 4, carbs: 12, fat: 6 },
-        { name: "Raita", portion: "1 bowl, 100g", calories: 70, protein: 3, carbs: 6, fat: 3 },
-        { name: "Biryani", portion: "1 plate, 250g", calories: 450, protein: 20, carbs: 55, fat: 18 },
-        { name: "Rajma", portion: "1 bowl, 150g", calories: 180, protein: 10, carbs: 28, fat: 4 },
-        { name: "Fish Curry", portion: "150g", calories: 200, protein: 22, carbs: 6, fat: 10 },
-        { name: "Salad", portion: "1 bowl, 100g", calories: 35, protein: 1, carbs: 7, fat: 0.3 }
+        { name: "Cooked Rice", icon: "🍚", portion: "1 bowl, 150g", calories: 195, protein: 4, carbs: 45, fat: 0.4 },
+        { name: "Roti", icon: "🫓", portion: "1 medium, 40g", calories: 120, protein: 3, carbs: 25, fat: 1 },
+        { name: "Dal", icon: "🥘", portion: "1 bowl, 150g", calories: 150, protein: 9, carbs: 20, fat: 3 },
+        { name: "Chicken Curry", icon: "🍗", portion: "150g", calories: 280, protein: 25, carbs: 8, fat: 18 },
+        { name: "Paneer", icon: "🧀", portion: "100g", calories: 265, protein: 18, carbs: 3, fat: 20 },
+        { name: "Curd", icon: "🥄", portion: "1 bowl, 100g", calories: 60, protein: 3, carbs: 5, fat: 3 },
+        { name: "Sabzi", icon: "🥬", portion: "1 bowl, 150g", calories: 120, protein: 4, carbs: 12, fat: 6 },
+        { name: "Raita", icon: "🥣", portion: "1 bowl, 100g", calories: 70, protein: 3, carbs: 6, fat: 3 },
+        { name: "Biryani", icon: "🍛", portion: "1 plate, 250g", calories: 450, protein: 20, carbs: 55, fat: 18 },
+        { name: "Rajma", icon: "🫘", portion: "1 bowl, 150g", calories: 180, protein: 10, carbs: 28, fat: 4 },
+        { name: "Fish Curry", icon: "🐟", portion: "150g", calories: 200, protein: 22, carbs: 6, fat: 10 },
+        { name: "Salad", icon: "🥗", portion: "1 bowl, 100g", calories: 35, protein: 1, carbs: 7, fat: 0.3 }
     ],
     Dinner: [
-        { name: "Cooked Rice", portion: "1 bowl, 150g", calories: 195, protein: 4, carbs: 45, fat: 0.4 },
-        { name: "Roti", portion: "1 medium, 40g", calories: 120, protein: 3, carbs: 25, fat: 1 },
-        { name: "Dal", portion: "1 bowl, 150g", calories: 150, protein: 9, carbs: 20, fat: 3 },
-        { name: "Chicken Curry", portion: "150g", calories: 280, protein: 25, carbs: 8, fat: 18 },
-        { name: "Paneer", portion: "100g", calories: 265, protein: 18, carbs: 3, fat: 20 },
-        { name: "Curd", portion: "1 bowl, 100g", calories: 60, protein: 3, carbs: 5, fat: 3 },
-        { name: "Dosa", portion: "1 large", calories: 168, protein: 4, carbs: 28, fat: 5 },
-        { name: "Khichdi", portion: "1 bowl, 200g", calories: 250, protein: 8, carbs: 40, fat: 6 },
-        { name: "Soup", portion: "1 bowl, 200ml", calories: 80, protein: 3, carbs: 8, fat: 4 },
-        { name: "Chapati", portion: "2 medium", calories: 240, protein: 6, carbs: 50, fat: 2 },
-        { name: "Aloo Gobi", portion: "1 bowl, 150g", calories: 140, protein: 3, carbs: 18, fat: 6 },
-        { name: "Palak Paneer", portion: "150g", calories: 280, protein: 14, carbs: 10, fat: 22 }
+        { name: "Cooked Rice", icon: "🍚", portion: "1 bowl, 150g", calories: 195, protein: 4, carbs: 45, fat: 0.4 },
+        { name: "Roti", icon: "🫓", portion: "1 medium, 40g", calories: 120, protein: 3, carbs: 25, fat: 1 },
+        { name: "Dal", icon: "🥘", portion: "1 bowl, 150g", calories: 150, protein: 9, carbs: 20, fat: 3 },
+        { name: "Chicken Curry", icon: "🍗", portion: "150g", calories: 280, protein: 25, carbs: 8, fat: 18 },
+        { name: "Paneer", icon: "🧀", portion: "100g", calories: 265, protein: 18, carbs: 3, fat: 20 },
+        { name: "Curd", icon: "🥄", portion: "1 bowl, 100g", calories: 60, protein: 3, carbs: 5, fat: 3 },
+        { name: "Dosa", icon: "🥞", portion: "1 large", calories: 168, protein: 4, carbs: 28, fat: 5 },
+        { name: "Khichdi", icon: "🍲", portion: "1 bowl, 200g", calories: 250, protein: 8, carbs: 40, fat: 6 },
+        { name: "Soup", icon: "🍜", portion: "1 bowl, 200ml", calories: 80, protein: 3, carbs: 8, fat: 4 },
+        { name: "Chapati", icon: "🫓", portion: "2 medium", calories: 240, protein: 6, carbs: 50, fat: 2 },
+        { name: "Aloo Gobi", icon: "🥔", portion: "1 bowl, 150g", calories: 140, protein: 3, carbs: 18, fat: 6 },
+        { name: "Palak Paneer", icon: "🥬", portion: "150g", calories: 280, protein: 14, carbs: 10, fat: 22 }
     ],
     Snacks: [
-        { name: "Tea", portion: "1 cup, 200ml", calories: 45, protein: 1, carbs: 6, fat: 1.5 },
-        { name: "Coffee", portion: "1 cup, 200ml", calories: 5, protein: 0.3, carbs: 0, fat: 0 },
-        { name: "Banana", portion: "1 medium, 120g", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
-        { name: "Apple", portion: "1 medium, 180g", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
-        { name: "Biscuits", portion: "4 pieces", calories: 120, protein: 2, carbs: 20, fat: 4 },
-        { name: "Namkeen", portion: "50g", calories: 260, protein: 5, carbs: 30, fat: 14 },
-        { name: "Samosa", portion: "1 piece", calories: 250, protein: 5, carbs: 28, fat: 14 },
-        { name: "Pakora", portion: "4 pieces", calories: 200, protein: 4, carbs: 18, fat: 12 },
-        { name: "Bhel Puri", portion: "1 plate", calories: 180, protein: 4, carbs: 32, fat: 6 },
-        { name: "Vada Pav", portion: "1 piece", calories: 290, protein: 6, carbs: 35, fat: 14 },
-        { name: "Sandwich", portion: "1 piece", calories: 200, protein: 7, carbs: 28, fat: 8 },
-        { name: "Fruit Chaat", portion: "1 bowl, 150g", calories: 100, protein: 1, carbs: 24, fat: 0.5 }
+        { name: "Tea", icon: "🍵", portion: "1 cup, 200ml", calories: 45, protein: 1, carbs: 6, fat: 1.5 },
+        { name: "Coffee", icon: "☕", portion: "1 cup, 200ml", calories: 5, protein: 0.3, carbs: 0, fat: 0 },
+        { name: "Banana", icon: "🍌", portion: "1 medium, 120g", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
+        { name: "Apple", icon: "🍎", portion: "1 medium, 180g", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+        { name: "Biscuits", icon: "🍪", portion: "4 pieces", calories: 120, protein: 2, carbs: 20, fat: 4 },
+        { name: "Namkeen", icon: "🥜", portion: "50g", calories: 260, protein: 5, carbs: 30, fat: 14 },
+        { name: "Samosa", icon: "🔺", portion: "1 piece", calories: 250, protein: 5, carbs: 28, fat: 14 },
+        { name: "Pakora", icon: "🧆", portion: "4 pieces", calories: 200, protein: 4, carbs: 18, fat: 12 },
+        { name: "Bhel Puri", icon: "🥙", portion: "1 plate", calories: 180, protein: 4, carbs: 32, fat: 6 },
+        { name: "Vada Pav", icon: "🍔", portion: "1 piece", calories: 290, protein: 6, carbs: 35, fat: 14 },
+        { name: "Sandwich", icon: "🥪", portion: "1 piece", calories: 200, protein: 7, carbs: 28, fat: 8 },
+        { name: "Fruit Chaat", icon: "🍓", portion: "1 bowl, 150g", calories: 100, protein: 1, carbs: 24, fat: 0.5 }
     ]
 };
 
-// Food categories for browse
-const FOOD_CATEGORIES = [
-    { name: "Vegetables", icon: "🥬", items: 45 },
-    { name: "Fruits", icon: "🍎", items: 38 },
-    { name: "Grains", icon: "🌾", items: 52 },
-    { name: "Proteins", icon: "🍗", items: 41 },
-    { name: "Dairy", icon: "🥛", items: 28 },
-    { name: "Beverages", icon: "☕", items: 35 },
-    { name: "Snacks", icon: "🍿", items: 62 },
-    { name: "Fast Food", icon: "🍔", items: 48 }
-];
+// Food categories with items for browse
+const FOOD_BY_CATEGORY = {
+    Vegetables: [
+        { name: "Spinach", icon: "🥬", portion: "1 bowl, 100g", calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
+        { name: "Potato", icon: "🥔", portion: "1 medium, 150g", calories: 130, protein: 3, carbs: 30, fat: 0.2 },
+        { name: "Tomato", icon: "🍅", portion: "1 medium, 120g", calories: 22, protein: 1, carbs: 4.8, fat: 0.2 },
+        { name: "Onion", icon: "🧅", portion: "1 medium, 100g", calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1 },
+        { name: "Carrot", icon: "🥕", portion: "1 medium, 80g", calories: 33, protein: 0.7, carbs: 7.7, fat: 0.2 },
+        { name: "Broccoli", icon: "🥦", portion: "1 cup, 90g", calories: 31, protein: 2.5, carbs: 6, fat: 0.4 },
+        { name: "Capsicum", icon: "🫑", portion: "1 medium, 120g", calories: 30, protein: 1, carbs: 7, fat: 0.2 },
+        { name: "Cauliflower", icon: "🥦", portion: "1 cup, 100g", calories: 25, protein: 2, carbs: 5, fat: 0.3 },
+        { name: "Cabbage", icon: "🥬", portion: "1 cup, 90g", calories: 22, protein: 1.3, carbs: 5.2, fat: 0.1 },
+        { name: "Lady Finger", icon: "🌿", portion: "1 bowl, 100g", calories: 33, protein: 1.9, carbs: 7, fat: 0.2 }
+    ],
+    Fruits: [
+        { name: "Banana", icon: "🍌", portion: "1 medium, 120g", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
+        { name: "Apple", icon: "🍎", portion: "1 medium, 180g", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+        { name: "Mango", icon: "🥭", portion: "1 medium, 200g", calories: 135, protein: 1.4, carbs: 35, fat: 0.6 },
+        { name: "Orange", icon: "🍊", portion: "1 medium, 150g", calories: 62, protein: 1.2, carbs: 15, fat: 0.2 },
+        { name: "Grapes", icon: "🍇", portion: "1 cup, 150g", calories: 104, protein: 1, carbs: 27, fat: 0.2 },
+        { name: "Watermelon", icon: "🍉", portion: "1 cup, 150g", calories: 46, protein: 0.9, carbs: 11.5, fat: 0.2 },
+        { name: "Papaya", icon: "🍈", portion: "1 cup, 140g", calories: 55, protein: 0.9, carbs: 14, fat: 0.1 },
+        { name: "Guava", icon: "🍐", portion: "1 medium, 100g", calories: 68, protein: 2.6, carbs: 14, fat: 1 },
+        { name: "Pomegranate", icon: "🫐", portion: "1/2 cup seeds, 90g", calories: 72, protein: 1.5, carbs: 16, fat: 1 },
+        { name: "Pineapple", icon: "🍍", portion: "1 cup, 165g", calories: 82, protein: 0.9, carbs: 22, fat: 0.2 }
+    ],
+    Grains: [
+        { name: "Cooked Rice", icon: "🍚", portion: "1 bowl, 150g", calories: 195, protein: 4, carbs: 45, fat: 0.4 },
+        { name: "Roti", icon: "🫓", portion: "1 medium, 40g", calories: 120, protein: 3, carbs: 25, fat: 1 },
+        { name: "Bread", icon: "🍞", portion: "2 slices, 60g", calories: 160, protein: 5, carbs: 30, fat: 2.5 },
+        { name: "Oats", icon: "🥣", portion: "1 bowl, 40g", calories: 150, protein: 5, carbs: 27, fat: 2.5 },
+        { name: "Poha", icon: "🍛", portion: "1 bowl, 150g", calories: 200, protein: 4, carbs: 38, fat: 5 },
+        { name: "Upma", icon: "🥣", portion: "1 bowl, 150g", calories: 220, protein: 6, carbs: 35, fat: 7 },
+        { name: "Dosa", icon: "🥞", portion: "1 large", calories: 168, protein: 4, carbs: 28, fat: 5 },
+        { name: "Idli", icon: "🫕", portion: "2 pieces", calories: 120, protein: 4, carbs: 24, fat: 0.5 },
+        { name: "Pasta", icon: "🍝", portion: "1 bowl, 200g", calories: 280, protein: 10, carbs: 55, fat: 3 },
+        { name: "Noodles", icon: "🍜", portion: "1 bowl, 200g", calories: 310, protein: 8, carbs: 48, fat: 10 }
+    ],
+    Proteins: [
+        { name: "Chicken Breast", icon: "🍗", portion: "100g grilled", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+        { name: "Boiled Egg", icon: "🥚", portion: "1 large", calories: 78, protein: 6, carbs: 0.5, fat: 5 },
+        { name: "Paneer", icon: "🧀", portion: "100g", calories: 265, protein: 18, carbs: 3, fat: 20 },
+        { name: "Dal", icon: "🥘", portion: "1 bowl, 150g", calories: 150, protein: 9, carbs: 20, fat: 3 },
+        { name: "Fish", icon: "🐟", portion: "100g", calories: 136, protein: 20, carbs: 0, fat: 6 },
+        { name: "Rajma", icon: "🫘", portion: "1 bowl, 150g", calories: 180, protein: 10, carbs: 28, fat: 4 },
+        { name: "Chana", icon: "🫘", portion: "1 bowl, 150g", calories: 210, protein: 12, carbs: 35, fat: 4 },
+        { name: "Tofu", icon: "🧊", portion: "100g", calories: 76, protein: 8, carbs: 1.9, fat: 4.8 },
+        { name: "Mutton Curry", icon: "🍖", portion: "150g", calories: 320, protein: 25, carbs: 5, fat: 22 },
+        { name: "Prawns", icon: "🦐", portion: "100g", calories: 99, protein: 24, carbs: 0.2, fat: 0.3 }
+    ],
+    Dairy: [
+        { name: "Milk", icon: "🥛", portion: "1 glass, 250ml", calories: 150, protein: 8, carbs: 12, fat: 8 },
+        { name: "Curd", icon: "🥄", portion: "1 bowl, 100g", calories: 60, protein: 3, carbs: 5, fat: 3 },
+        { name: "Buttermilk", icon: "🥛", portion: "1 glass, 200ml", calories: 40, protein: 3, carbs: 5, fat: 1 },
+        { name: "Cheese", icon: "🧀", portion: "1 slice, 20g", calories: 68, protein: 4, carbs: 0.4, fat: 5.5 },
+        { name: "Ghee", icon: "🫕", portion: "1 tbsp, 15g", calories: 130, protein: 0, carbs: 0, fat: 15 },
+        { name: "Butter", icon: "🧈", portion: "1 tbsp, 14g", calories: 100, protein: 0.1, carbs: 0, fat: 11 },
+        { name: "Raita", icon: "🥣", portion: "1 bowl, 100g", calories: 70, protein: 3, carbs: 6, fat: 3 },
+        { name: "Lassi", icon: "🥛", portion: "1 glass, 250ml", calories: 180, protein: 6, carbs: 28, fat: 5 }
+    ],
+    Beverages: [
+        { name: "Tea", icon: "🍵", portion: "1 cup, 200ml", calories: 45, protein: 1, carbs: 6, fat: 1.5 },
+        { name: "Coffee", icon: "☕", portion: "1 cup, 200ml", calories: 5, protein: 0.3, carbs: 0, fat: 0 },
+        { name: "Green Tea", icon: "🍵", portion: "1 cup, 200ml", calories: 2, protein: 0, carbs: 0, fat: 0 },
+        { name: "Fresh Juice", icon: "🧃", portion: "1 glass, 200ml", calories: 110, protein: 1, carbs: 26, fat: 0.3 },
+        { name: "Coconut Water", icon: "🥥", portion: "1 glass, 250ml", calories: 48, protein: 2, carbs: 9, fat: 0.5 },
+        { name: "Lemonade", icon: "🍋", portion: "1 glass, 250ml", calories: 80, protein: 0.3, carbs: 21, fat: 0 },
+        { name: "Protein Shake", icon: "🥤", portion: "1 scoop, 300ml", calories: 120, protein: 24, carbs: 3, fat: 1 },
+        { name: "Soft Drink", icon: "🥤", portion: "1 can, 330ml", calories: 140, protein: 0, carbs: 39, fat: 0 }
+    ],
+    Snacks: [
+        { name: "Samosa", icon: "🔺", portion: "1 piece", calories: 250, protein: 5, carbs: 28, fat: 14 },
+        { name: "Pakora", icon: "🧆", portion: "4 pieces", calories: 200, protein: 4, carbs: 18, fat: 12 },
+        { name: "Biscuits", icon: "🍪", portion: "4 pieces", calories: 120, protein: 2, carbs: 20, fat: 4 },
+        { name: "Namkeen", icon: "🥜", portion: "50g", calories: 260, protein: 5, carbs: 30, fat: 14 },
+        { name: "Bhel Puri", icon: "🥙", portion: "1 plate", calories: 180, protein: 4, carbs: 32, fat: 6 },
+        { name: "Sandwich", icon: "🥪", portion: "1 piece", calories: 200, protein: 7, carbs: 28, fat: 8 },
+        { name: "Almonds", icon: "🌰", portion: "10 pieces, 15g", calories: 85, protein: 3, carbs: 3, fat: 7 },
+        { name: "Makhana", icon: "🫘", portion: "1 bowl, 30g", calories: 100, protein: 3, carbs: 18, fat: 0.5 },
+        { name: "Sprouts", icon: "🌱", portion: "1 bowl, 100g", calories: 80, protein: 6, carbs: 12, fat: 0.5 },
+        { name: "Fruit Chaat", icon: "🍓", portion: "1 bowl, 150g", calories: 100, protein: 1, carbs: 24, fat: 0.5 }
+    ],
+    "Fast Food": [
+        { name: "Vada Pav", icon: "🍔", portion: "1 piece", calories: 290, protein: 6, carbs: 35, fat: 14 },
+        { name: "Pav Bhaji", icon: "🍛", portion: "1 plate", calories: 400, protein: 10, carbs: 52, fat: 18 },
+        { name: "Pizza Slice", icon: "🍕", portion: "1 slice, 100g", calories: 270, protein: 12, carbs: 33, fat: 10 },
+        { name: "Burger", icon: "🍔", portion: "1 regular", calories: 350, protein: 15, carbs: 40, fat: 15 },
+        { name: "French Fries", icon: "🍟", portion: "medium, 120g", calories: 365, protein: 4, carbs: 44, fat: 19 },
+        { name: "Chole Bhature", icon: "🫓", portion: "1 plate", calories: 500, protein: 14, carbs: 60, fat: 24 },
+        { name: "Frankie/Wrap", icon: "🌯", portion: "1 piece", calories: 320, protein: 12, carbs: 38, fat: 14 },
+        { name: "Momos", icon: "🥟", portion: "6 pieces", calories: 240, protein: 10, carbs: 30, fat: 9 }
+    ]
+};
+
+const FOOD_CATEGORIES = Object.keys(FOOD_BY_CATEGORY).map(name => ({
+    name,
+    icon: FOOD_BY_CATEGORY[name][0]?.icon || '🍽️',
+    items: FOOD_BY_CATEGORY[name].length
+}));
+
+// Change #9: Smart meal suggestions
+const mealSuggestions = {
+    Breakfast: ["2 boiled eggs + toast", "1 bowl oats with banana", "Poha with chai", "2 idli + sambar", "Paratha with curd", "Upma with coconut chutney"],
+    Lunch: ["2 roti + dal fry + sabzi", "Rice + rajma + salad", "Chicken biryani 250g", "Curd rice + pickle", "Paneer butter masala + naan", "Fish curry + rice"],
+    Dinner: ["2 chapati + paneer curry", "Dal rice + papad", "Grilled fish + veggies", "Khichdi + pickle", "Soup + bread", "Dosa + sambar"],
+    Snacks: ["1 banana + peanut butter", "Handful of almonds", "Sprouts chaat 1 bowl", "Tea + 2 biscuits", "Fruit salad", "Roasted chana 50g"]
+};
 
 // ==========================================
 // HELPER COMPONENTS
@@ -179,7 +275,7 @@ const ConfidenceIndicator = ({ score, theme }) => {
 // Macro progress bar
 const MacroBar = ({ label, value, max, color, theme }) => (
     <div className="flex items-center gap-2 text-xs">
-        <span className={`w-12 font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{label}</span>
+        <span className={`w-12 font-medium ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{label}</span>
         <div className={`flex-1 h-1.5 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C]' : 'bg-gray-200'}`}>
             <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${Math.min((value / max) * 100, 100)}%` }} />
         </div>
@@ -187,40 +283,70 @@ const MacroBar = ({ label, value, max, color, theme }) => (
     </div>
 );
 
-// Weight slider editor
+// Weight slider editor — rendered as a bottom sheet overlay
 const WeightEditor = ({ value, onChange, onClose, theme }) => {
     const [weight, setWeight] = useState(parseInt(value) || 200);
-    const quickWeights = [100, 200, 300, 500];
+    const quickWeights = [50, 100, 150, 200, 300, 500];
 
     return (
-        <div className={`absolute inset-0 z-10 flex flex-col rounded-2xl p-4 backdrop-blur-xl ${theme === 'dark' ? 'bg-[#1C1C1E]/95' : 'bg-white/95'}`}>
-            <div className="flex justify-between items-center mb-4">
-                <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Adjust Weight</span>
-                <button onClick={onClose} className={`p-1 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C]' : 'bg-gray-100'}`}><X size={16} /></button>
-            </div>
-            <input
-                type="range"
-                min="50"
-                max="1000"
-                value={weight}
-                onChange={(e) => setWeight(parseInt(e.target.value))}
-                className="w-full h-2 rounded-full accent-blue-500 mb-4"
-            />
-            <div className="flex justify-between mb-4">
-                <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{weight}g</span>
-            </div>
-            <div className="flex gap-2 mb-4">
-                {quickWeights.map(w => (
-                    <button key={w} onClick={() => setWeight(w)} className={`flex-1 py-2 rounded-xl font-semibold text-sm transition-colors ${weight === w ? (theme === 'dark' ? 'bg-blue-500 text-white' : 'bg-black text-white') : (theme === 'dark' ? 'bg-[#3A3A3C] text-white' : 'bg-gray-100 text-gray-700')}`}>
-                        {w}g
+        <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-[80] bg-black/60" onClick={onClose} />
+            {/* Bottom Sheet */}
+            <div className={`fixed bottom-0 left-0 right-0 z-[90] rounded-t-3xl p-6 pb-8 animate-slide-up md:max-w-md md:left-1/2 md:-translate-x-1/2 ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-white'}`}>
+                {/* Handle bar */}
+                <div className="flex justify-center mb-4">
+                    <div className={`w-10 h-1 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C]' : 'bg-gray-300'}`} />
+                </div>
+                <div className="flex justify-between items-center mb-5">
+                    <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Adjust Weight</span>
+                    <button onClick={onClose} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                        <X size={18} />
                     </button>
-                ))}
+                </div>
+                {/* Current value */}
+                <div className="flex justify-center mb-4">
+                    <span className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{weight}<span className="text-lg opacity-50">g</span></span>
+                </div>
+                {/* Slider */}
+                <input
+                    type="range"
+                    min="10"
+                    max="1000"
+                    step="10"
+                    value={weight}
+                    onChange={(e) => setWeight(parseInt(e.target.value))}
+                    className="w-full h-2 rounded-full accent-blue-500 mb-2 cursor-pointer"
+                />
+                <div className="flex justify-between text-xs mb-5">
+                    <span className={theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}>10g</span>
+                    <span className={theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}>1000g</span>
+                </div>
+                {/* Quick weight buttons */}
+                <div className="flex gap-2 mb-6">
+                    {quickWeights.map(w => (
+                        <button key={w} onClick={() => setWeight(w)} className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors ${weight === w ? (theme === 'dark' ? 'bg-blue-500 text-white' : 'bg-black text-white') : (theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-gray-700')}`}>
+                            {w}g
+                        </button>
+                    ))}
+                </div>
+                {/* Apply button */}
+                <button onClick={() => { onChange(weight); onClose(); }} className={`w-full py-4 rounded-2xl font-bold text-white text-base ${theme === 'dark' ? 'bg-blue-500 active:bg-blue-600' : 'bg-black active:bg-gray-800'} transition-colors`}>
+                    Apply Weight
+                </button>
             </div>
-            <button onClick={() => { onChange(weight); onClose(); }} className={`w-full py-3 rounded-xl font-bold text-white ${theme === 'dark' ? 'bg-blue-500' : 'bg-black'}`}>
-                Apply
-            </button>
-        </div>
+        </>
     );
+};
+
+// Change #3: Time-aware meal auto-selection
+const getTimeBasedMeal = () => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) return 'Breakfast';
+    if (h >= 11 && h < 15) return 'Lunch';
+    if (h >= 15 && h < 18) return 'Snacks';
+    if (h >= 18 && h < 23) return 'Dinner';
+    return 'Snacks'; // 11 PM – 5 AM
 };
 
 // ==========================================
@@ -228,9 +354,11 @@ const WeightEditor = ({ value, onChange, onClose, theme }) => {
 // ==========================================
 
 const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm, editingFood, recentFoods = [], foodPatterns = {} }) => {
-    // State management
-    const [activeMeal, setActiveMeal] = useState(meal || 'Snacks');
-    const [mode, setMode] = useState(type === 'exercise' || initialTerm ? 'ai' : 'ai'); // Default to AI mode
+    // Change #3: Auto-select meal tab based on time
+    const autoMeal = useMemo(() => getTimeBasedMeal(), []);
+    const [activeMeal, setActiveMeal] = useState(meal || autoMeal);
+    const [mealAutoSelected, setMealAutoSelected] = useState(!meal); // true if we auto-selected
+    const [mode, setMode] = useState(type === 'exercise' || initialTerm ? 'ai' : 'ai');
     const [query, setQuery] = useState(initialTerm || '');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
@@ -247,8 +375,14 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
     const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
     const [editingWeight, setEditingWeight] = useState(null);
     const [expandedMacros, setExpandedMacros] = useState(new Set());
-    const [showQuickAddCustomize, setShowQuickAddCustomize] = useState(false);
     const [slowConnection, setSlowConnection] = useState(false);
+    // Change #9: Sparkle suggestions popover
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [lastSuggestionSet, setLastSuggestionSet] = useState([]);
+    // Change #5: Scan tooltip
+    const [showScanPulse, setShowScanPulse] = useState(false);
+    // Category browse state
+    const [selectedCategory, setSelectedCategory] = useState(null);
 
     // Initialize with editing food data
     useEffect(() => {
@@ -268,6 +402,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
     const searchInputRef = useRef(null);
     const analysisTimerRef = useRef(null);
     const slowConnectionTimerRef = useRef(null);
+    const suggestionsRef = useRef(null);
 
     const styles = THEMES[theme];
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
@@ -278,18 +413,20 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
         []
     );
 
-    // Get current hour for time-based suggestions
-    const currentHour = new Date().getHours();
-    const getTimeBasedMeal = () => {
-        if (currentHour >= 6 && currentHour < 10) return 'Breakfast';
-        if (currentHour >= 12 && currentHour < 14) return 'Lunch';
-        if (currentHour >= 16 && currentHour < 18) return 'Snacks';
-        if (currentHour >= 19 && currentHour < 22) return 'Dinner';
-        return 'Snacks';
-    };
-
-    // Get quick add items for current meal
-    const quickAddItems = useMemo(() => QUICK_ADD_BY_MEAL[activeMeal] || QUICK_ADD_BY_MEAL.Snacks, [activeMeal]);
+    // Change #6: Get recent items from localStorage or fall back to defaults
+    const { quickAddItems, isUsingRecent } = useMemo(() => {
+        try {
+            const stored = localStorage.getItem('recentMeals');
+            if (stored) {
+                const recentMap = JSON.parse(stored);
+                const recentForMeal = recentMap[activeMeal];
+                if (recentForMeal && recentForMeal.length > 0) {
+                    return { quickAddItems: recentForMeal.slice(0, 4), isUsingRecent: true };
+                }
+            }
+        } catch (e) { /* ignore parse errors */ }
+        return { quickAddItems: (QUICK_ADD_BY_MEAL[activeMeal] || QUICK_ADD_BY_MEAL.Snacks).slice(0, 8), isUsingRecent: false };
+    }, [activeMeal]);
 
     // Show first-time tooltip
     useEffect(() => {
@@ -302,6 +439,30 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
             }, 3000);
         }
     }, [mode]);
+
+    // Change #5: One-time scan pulse
+    useEffect(() => {
+        const hasSeen = localStorage.getItem('seenScanTooltip');
+        if (!hasSeen) {
+            setShowScanPulse(true);
+            const timer = setTimeout(() => {
+                setShowScanPulse(false);
+                localStorage.setItem('seenScanTooltip', 'true');
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
+    // Close suggestions popover on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        if (showSuggestions) document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showSuggestions]);
 
     // Auto-capitalize first letter
     const handleQueryChange = (e) => {
@@ -401,11 +562,32 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
         }
     };
 
-    // Handle food add with toast
+    // Handle food add with toast + save to recent meals (Change #6)
     const handleAddFood = (item) => {
         setLastAddedItem({ item, meal: type === 'exercise' ? 'exercise' : activeMeal });
         onAdd(item, type === 'exercise' ? 'exercise' : activeMeal);
-        setToast({ message: `${item.name} added to ${activeMeal} ✓`, type: 'success' });
+        setToast({ message: `${item.name} added ✓`, type: 'success' });
+
+        // Save to localStorage recent meals
+        if (type !== 'exercise') {
+            try {
+                const stored = localStorage.getItem('recentMeals');
+                const recentMap = stored ? JSON.parse(stored) : {};
+                const mealRecents = recentMap[activeMeal] || [];
+                const newItem = {
+                    name: item.name,
+                    portion: item.weight || item.portion,
+                    calories: item.calories,
+                    protein: item.protein || 0,
+                    carbs: item.carbs || 0,
+                    fat: item.fat || 0
+                };
+                // Remove duplicate and add to front
+                const filtered = mealRecents.filter(r => r.name !== newItem.name);
+                recentMap[activeMeal] = [newItem, ...filtered].slice(0, 8);
+                localStorage.setItem('recentMeals', JSON.stringify(recentMap));
+            } catch (e) { /* ignore */ }
+        }
 
         // Haptic feedback (if available)
         if (navigator.vibrate) {
@@ -413,14 +595,8 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
         }
     };
 
-    // Handle undo
-    const handleUndo = () => {
-        if (lastAddedItem) {
-            // In a real app, you'd call an onRemove function here
-            setToast({ message: `${lastAddedItem.item.name} removed`, type: 'error' });
-            setLastAddedItem(null);
-        }
-    };
+    // Handle undo - not wired to delete from Firestore, so disabled
+    const handleUndo = null;
 
     // Voice input handler
     const handleVoiceInput = () => {
@@ -480,7 +656,9 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
         if (!aiResult) return;
         const updatedSuggestions = [...aiResult.suggestions];
         const item = updatedSuggestions[index];
-        const originalWeight = parseInt(item.weight) || 200;
+        // Extract numeric weight from strings like "200g", "1 bowl, 200g", etc.
+        const weightMatch = String(item.weight).match(/(\d+)\s*g/i);
+        const originalWeight = weightMatch ? parseInt(weightMatch[1]) : (parseInt(item.weight) || 200);
         const ratio = newWeight / originalWeight;
 
         updatedSuggestions[index] = {
@@ -497,18 +675,52 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
 
     // Search functionality
     const handleSearch = (searchTerm) => {
-        // In a real app, this would call an API
         setSearchQuery(searchTerm);
-        // Simulate search results
+        setSelectedCategory(null); // exit category view when searching
         if (searchTerm.length >= 2) {
-            const allItems = Object.values(QUICK_ADD_BY_MEAL).flat();
-            const filtered = allItems.filter(item =>
-                item.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            setSearchResults(filtered.slice(0, 10));
+            // Search across ALL food sources
+            const quickItems = Object.values(QUICK_ADD_BY_MEAL).flat();
+            const catItems = Object.values(FOOD_BY_CATEGORY).flat();
+            const allItems = [...quickItems, ...catItems];
+            // Deduplicate by name
+            const seen = new Set();
+            const filtered = allItems.filter(item => {
+                const key = item.name.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return key.includes(searchTerm.toLowerCase());
+            });
+            setSearchResults(filtered.slice(0, 15));
         } else {
             setSearchResults([]);
         }
+    };
+
+    // Category selection handler
+    const handleCategorySelect = (categoryName) => {
+        setSelectedCategory(categoryName);
+        setSearchQuery('');
+        setSearchResults([]);
+    };
+
+    // Change #9: Get random suggestions that differ from last set
+    const getRandomSuggestions = () => {
+        const pool = mealSuggestions[activeMeal] || mealSuggestions.Snacks;
+        let available = pool.filter(s => !lastSuggestionSet.includes(s));
+        if (available.length < 3) available = [...pool]; // reset if exhausted
+        const shuffled = available.sort(() => Math.random() - 0.5);
+        const picked = shuffled.slice(0, 3);
+        setLastSuggestionSet(picked);
+        return picked;
+    };
+
+    const [currentSuggestions, setCurrentSuggestions] = useState([]);
+
+    const handleToggleSuggestions = () => {
+        if (!showSuggestions) {
+            setCurrentSuggestions(getRandomSuggestions());
+        }
+        setShowSuggestions(!showSuggestions);
     };
 
     // Styles
@@ -539,22 +751,29 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                     </button>
                 </div>
 
-                {/* Meal Tabs */}
+                {/* Meal Tabs — Change #3: auto-selection indicator */}
                 {type !== 'exercise' && (
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        {MEAL_OPTIONS.map(m => (
-                            <button
-                                key={m}
-                                onClick={() => setActiveMeal(m)}
-                                className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap ${activeMeal === m
-                                        ? (theme === 'dark' ? 'bg-white text-black' : (theme === 'wooden' ? 'bg-[#3E2723] text-[#EAD8B1]' : 'bg-black text-white'))
-                                        : (theme === 'dark' ? 'bg-[#2C2C2E] text-gray-400' : 'bg-gray-200 text-gray-500')
-                                    }`}
-                                aria-label={`Select ${m} meal`}
-                            >
-                                {m}
-                            </button>
-                        ))}
+                    <div>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            {MEAL_OPTIONS.map(m => (
+                                <button
+                                    key={m}
+                                    onClick={() => { setActiveMeal(m); setMealAutoSelected(false); }}
+                                    className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap ${activeMeal === m
+                                            ? (theme === 'dark' ? 'bg-white text-black' : (theme === 'wooden' ? 'bg-[#3E2723] text-[#EAD8B1]' : 'bg-black text-white'))
+                                            : (theme === 'dark' ? 'bg-[#2C2C2E] text-[#c0c7d6]' : 'bg-gray-200 text-gray-500')
+                                        }`}
+                                    aria-label={`Select ${m} meal`}
+                                >
+                                    {m}
+                                </button>
+                            ))}
+                        </div>
+                        {mealAutoSelected && (
+                            <p className={`text-[10px] mt-1.5 ml-1 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                                Auto-selected · tap to change
+                            </p>
+                        )}
                     </div>
                 )}
             </div>
@@ -583,9 +802,9 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                         style={{ minWidth: '140px' }}
                                     >
                                         <p className={`font-bold text-sm truncate ${styles.textMain}`}>{food.name}</p>
-                                        <p className={`text-xs ${styles.textSec} mt-1`}>{food.portion || food.weight}</p>
+                                        <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{food.portion || food.weight}</p>
                                         <div className="flex items-center justify-between mt-2">
-                                            <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-green-400' : 'text-emerald-600'}`}>
+                                            <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
                                                 {food.calories} kcal
                                             </span>
                                             <Plus size={14} className={styles.accentBlueText} />
@@ -624,12 +843,51 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                         )}
 
                         <div className={`p-6 rounded-[2rem] shadow-sm relative overflow-hidden transition-colors border ${styles.card} ${styles.border}`}>
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <Sparkles size={100} className={styles.textMain} />
+                            {/* Change #9: Sparkle icon — interactive suggestions trigger */}
+                            <div className="absolute top-0 right-0 p-3" ref={suggestionsRef}>
+                                <button
+                                    onClick={handleToggleSuggestions}
+                                    className={`p-2.5 rounded-xl transition-all hover:scale-110 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                                        showSuggestions 
+                                            ? (theme === 'dark' ? 'bg-purple-500/30 text-purple-400' : 'bg-indigo-100 text-indigo-600')
+                                            : (theme === 'dark' ? 'bg-[#2C2C2E] text-[#9aa3b2]' : 'bg-gray-100 text-gray-400')
+                                    }`}
+                                    title="Smart suggestions"
+                                    aria-label="Smart meal suggestions"
+                                >
+                                    <Sparkles size={18} />
+                                </button>
+
+                                {/* Suggestions dropdown */}
+                                {showSuggestions && (
+                                    <div className={`absolute top-14 right-0 w-64 p-3 rounded-2xl shadow-xl border z-20 animate-fade-in ${
+                                        theme === 'dark' ? 'bg-[#2C2C2E] border-white/10' : 'bg-white border-gray-200 shadow-lg'
+                                    }`}>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                                            Try for {activeMeal}
+                                        </p>
+                                        <div className="space-y-1">
+                                            {currentSuggestions.map((sug, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => { setQuery(sug); setShowSuggestions(false); }}
+                                                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                                                        theme === 'dark' 
+                                                            ? 'text-white hover:bg-white/10 active:bg-white/20' 
+                                                            : 'text-gray-800 hover:bg-gray-50 active:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    {sug}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Change #1: Renamed label */}
                             <label className={`block text-sm font-bold mb-2 ${styles.textSec}`}>
-                                {type === 'exercise' ? 'Describe your workout' : 'Describe your meal'}
+                                {type === 'exercise' ? 'Describe your workout' : 'What did you eat?'}
                             </label>
 
                             <div className="relative">
@@ -651,10 +909,14 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                     aria-label="Meal description input"
                                 />
 
-                                {/* Character counter */}
-                                <span className={`absolute bottom-0 right-0 text-xs ${styles.textSec}`}>
-                                    {query.length}/200
-                                </span>
+                                {/* Change #2: Character counter — only show at 150+ */}
+                                {query.length >= 150 && (
+                                    <span className={`absolute bottom-0 right-0 text-xs font-medium ${
+                                        query.length >= 190 ? 'text-red-400' : 'text-amber-400'
+                                    }`}>
+                                        {query.length}/200
+                                    </span>
+                                )}
                             </div>
 
                             {/* Voice indicator */}
@@ -667,7 +929,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                         disabled={isAnalyzing}
                                         className={`p-2 rounded-full transition-all ${isVoiceListening
                                                 ? 'bg-red-500 text-white animate-pulse'
-                                                : `${styles.textSec} hover:opacity-80`
+                                                : `${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`
                                             }`}
                                         title="Tap and say your meal naturally"
                                         aria-label="Voice input"
@@ -675,28 +937,54 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                         <Mic size={20} />
                                     </button>
 
+                                    {/* Change #5: Demoted Scan button — inline icon */}
+                                    {type !== 'exercise' && (
+                                        <div className="relative">
+                                            <button
+                                                className={`p-2 rounded-full transition-all ${
+                                                    showScanPulse ? 'animate-pulse ring-2 ring-blue-500/50' : ''
+                                                } ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`}
+                                                title="Scan a food label or barcode"
+                                                aria-label="Scan barcode"
+                                            >
+                                                <ScanLine size={20} />
+                                            </button>
+                                            {showScanPulse && (
+                                                <div className={`absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-30 shadow-lg ${
+                                                    theme === 'dark' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'bg-black text-white'
+                                                }`}>
+                                                    Scan a food label
+                                                    <div className={`absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${
+                                                        theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-black'
+                                                    }`} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Voice tip */}
                                     {!isVoiceListening && (
-                                        <span className={`text-xs ${styles.textSec} hidden sm:block`}>
+                                        <span className={`text-xs hidden sm:block ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
                                             Try: Tap and say your meal
                                         </span>
                                     )}
                                 </div>
 
+                                {/* Change #4: Analyze button with loading spinner */}
                                 <button
                                     onClick={handleAISubmit}
                                     disabled={!query || isAnalyzing}
                                     className={`px-6 py-3 rounded-full font-bold text-white transition-all flex items-center gap-2 ${!query
                                             ? 'bg-gray-400'
                                             : isAnalyzing
-                                                ? (theme === 'dark' ? 'bg-[#0A84FF] animate-pulse' : 'bg-black animate-pulse')
+                                                ? (theme === 'dark' ? 'bg-[#0A84FF] opacity-80' : 'bg-black opacity-80')
                                                 : (theme === 'dark' ? 'bg-[#0A84FF]' : (theme === 'wooden' ? 'bg-[#8B4513]' : 'bg-black'))
                                         }`}
                                     aria-label="Analyze meal"
                                 >
                                     {isAnalyzing ? (
                                         <>
-                                            Analyzing... 🔍
+                                            <Loader2 size={18} className="animate-spin" /> Analyzing...
                                         </>
                                     ) : (
                                         <>
@@ -719,7 +1007,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                                 />
                                             ))}
                                         </div>
-                                        <span className={`text-sm ${styles.textSec}`}>{analysisStep}</span>
+                                        <span className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{analysisStep}</span>
                                     </div>
                                     {slowConnection && (
                                         <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}>
@@ -730,11 +1018,13 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                             )}
                         </div>
 
-                        {/* Search database link */}
+                        {/* Change #10: Search database link — improved contrast */}
                         {type !== 'exercise' && (
                             <button
                                 onClick={() => setShowSearchOverlay(true)}
-                                className={`mt-3 text-sm font-medium w-full text-center py-2 ${styles.accentBlueText} hover:underline flex items-center justify-center gap-1`}
+                                className={`mt-3 text-sm font-medium w-full text-center py-2 hover:underline flex items-center justify-center gap-1 ${
+                                    theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'
+                                }`}
                             >
                                 <Search size={14} /> or search food database →
                             </button>
@@ -772,7 +1062,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                         </div>
                     )}
 
-                    {/* AI Suggestions (Results) */}
+                    {/* AI Suggestions (Results) — Change #4: inline nutrition preview */}
                     {aiResult && !isAnalyzing && (
                         <div className="animate-fade-in mb-6 space-y-3">
                             <h3 className={`text-sm font-bold ${styles.textSec} uppercase tracking-widest ml-1 flex items-center gap-2`}>
@@ -782,7 +1072,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                             {aiResult.suggestions.map((item, idx) => (
                                 <div
                                     key={idx}
-                                    className={`p-4 rounded-2xl shadow-sm border transition-all relative overflow-hidden ${cardBg} ${styles.border}`}
+                                    className={`p-4 rounded-2xl shadow-sm border transition-all relative ${cardBg} ${styles.border}`}
                                 >
                                     {/* Weight Editor Overlay */}
                                     {editingWeight === idx && (
@@ -801,7 +1091,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                                 {item.confidence && <ConfidenceIndicator score={item.confidence} theme={theme} />}
                                             </div>
 
-                                            <div className={`flex items-center gap-3 text-sm ${styles.textSec}`}>
+                                            <div className={`flex items-center gap-3 text-sm`}>
                                                 {type === 'exercise' ? (
                                                     <span className="text-blue-500 font-medium">{item.duration}</span>
                                                 ) : (
@@ -812,16 +1102,34 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                                         {item.weight} <Edit2 size={12} />
                                                     </button>
                                                 )}
-                                                <span className={theme === 'dark' ? 'text-green-400' : 'text-emerald-600'}>
+                                                <span className={theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}>
                                                     {item.calories} {type === 'exercise' ? 'burned' : 'kcal'}
                                                 </span>
                                             </div>
+
+                                            {/* Change #4: Inline nutrition preview */}
+                                            {type !== 'exercise' && (
+                                                <div className={`mt-3 flex gap-3 text-xs ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>
+                                                    <span><strong className={styles.textMain}>{item.calories}</strong> kcal</span>
+                                                    <span><strong className={styles.textMain}>{item.protein}g</strong> prot</span>
+                                                    <span><strong className={styles.textMain}>{item.carbs}g</strong> carb</span>
+                                                    <span><strong className={styles.textMain}>{item.fat}g</strong> fat</span>
+                                                </div>
+                                            )}
+
+                                            {/* Low confidence warning */}
+                                            {item.confidence && item.confidence < 0.5 && (
+                                                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
+                                                    <AlertCircle size={12} />
+                                                    <span className="font-medium">Low confidence — please verify</span>
+                                                </div>
+                                            )}
 
                                             {/* Expandable Macros */}
                                             {type !== 'exercise' && (
                                                 <button
                                                     onClick={() => toggleMacroExpansion(idx)}
-                                                    className={`mt-2 text-xs flex items-center gap-1 ${styles.textSec} hover:opacity-80`}
+                                                    className={`mt-2 text-xs flex items-center gap-1 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`}
                                                 >
                                                     <ChevronDown size={14} className={`transform transition-transform ${expandedMacros.has(idx) ? 'rotate-180' : ''}`} />
                                                     {expandedMacros.has(idx) ? 'Hide' : 'Show'} macros
@@ -839,7 +1147,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
 
                                         <button
                                             onClick={() => handleAddFood(item)}
-                                            className={`p-3 rounded-full transition-all hover:scale-110 active:scale-95 ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-indigo-50'} ${styles.accentBlueText}`}
+                                            className={`p-3 rounded-full transition-all hover:scale-110 active:scale-95 ${theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}
                                             aria-label={`Add ${item.name}`}
                                         >
                                             <Plus size={20} />
@@ -851,7 +1159,7 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                             {/* Alternative suggestions */}
                             {aiResult.alternatives && aiResult.alternatives.length > 0 && (
                                 <div className={`mt-4 p-3 rounded-xl ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-50'}`}>
-                                    <p className={`text-xs ${styles.textSec} mb-2`}>Not quite right? Try:</p>
+                                    <p className={`text-xs mb-2 ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>Not quite right? Try:</p>
                                     <div className="flex flex-wrap gap-2">
                                         {aiResult.alternatives.map((alt, idx) => (
                                             <button
@@ -868,56 +1176,56 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                         </div>
                     )}
 
-                    {/* Quick Add Section */}
+                    {/* Quick Add / Recent Section — Changes #6, #7, #8 */}
                     {type !== 'exercise' && (
                         <div className="mb-6">
+                            {/* Change #8: Removed Edit button. Change #6: Dynamic label */}
                             <div className="flex items-center justify-between mb-3">
-                                <h3 className={`text-xs font-bold ${styles.textSec} uppercase tracking-widest`}>Quick Add</h3>
-                                <button
-                                    onClick={() => setShowQuickAddCustomize(true)}
-                                    className={`p-1.5 rounded-lg ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'} ${styles.textSec}`}
-                                    aria-label="Customize quick add"
-                                >
-                                    <Edit2 size={14} />
-                                </button>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                                    {isUsingRecent ? 'Recent' : 'Quick Add'}
+                                </h3>
                             </div>
 
-                            {/* 2-Column Grid */}
+                            {/* 2-Column Grid — Change #7: Plus icon + press state */}
                             <div className="grid grid-cols-2 gap-2">
-                                {quickAddItems.slice(0, 8).map((item, idx) => (
+                                {quickAddItems.map((item, idx) => (
                                     <button
                                         key={idx}
                                         onClick={() => handleQuickAdd(item)}
-                                        className={`p-3 rounded-xl text-left border transition-all hover:scale-[1.02] active:scale-95 ${cardBg} ${styles.border}`}
+                                        className={`p-3 rounded-xl text-left border transition-all hover:scale-[1.02] active:scale-95 relative group ${cardBg} ${styles.border} ${
+                                            theme === 'dark' ? 'hover:border-white/20' : 'hover:border-gray-300'
+                                        }`}
                                         title={`~${item.calories} kcal`}
                                     >
-                                        <p className={`font-bold text-sm truncate ${styles.textMain}`}>{item.name}</p>
-                                        <p className={`text-xs ${styles.textSec} truncate`}>{item.portion}</p>
-                                        <p className={`text-xs font-semibold mt-1 ${theme === 'dark' ? 'text-green-400' : 'text-emerald-600'}`}>
+                                        {/* Change #7: Plus icon in top-right */}
+                                        <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition-all opacity-60 group-hover:opacity-100 ${
+                                            theme === 'dark' ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            <Plus size={12} />
+                                        </div>
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="text-2xl flex-shrink-0">{item.icon || '🍽️'}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`font-bold text-sm truncate ${styles.textMain}`}>{item.name}</p>
+                                                <p className={`text-xs truncate ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                            </div>
+                                        </div>
+                                        <p className={`text-xs font-semibold mt-1.5 ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
                                             ~{item.calories} kcal
                                         </p>
                                     </button>
                                 ))}
                             </div>
 
-                            {quickAddItems.length > 8 && (
-                                <button className={`w-full mt-3 py-2 text-sm font-medium ${styles.accentBlueText}`}>
-                                    Show more ({quickAddItems.length - 8} items)
+                            {!isUsingRecent && quickAddItems.length > 8 && (
+                                <button className={`w-full mt-3 py-2 text-sm font-medium ${theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'}`}>
+                                    Show more ({(QUICK_ADD_BY_MEAL[activeMeal] || []).length - 8} items)
                                 </button>
                             )}
                         </div>
                     )}
 
-                    {/* Barcode Scanner FAB */}
-                    {type !== 'exercise' && (
-                        <button
-                            className={`fixed bottom-24 right-4 z-50 flex items-center gap-2 px-5 py-3.5 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-[#0A84FF] text-white' : (theme === 'wooden' ? 'bg-[#8B4513] text-white' : 'bg-black text-white')}`}
-                            aria-label="Scan barcode"
-                        >
-                            <ScanLine size={20} />
-                            <span className="font-semibold">Scan</span>
-                        </button>
-                    )}
+                    {/* Change #5: Removed floating Scan FAB — now inline in action row above */}
                 </div>
             </div>
 
@@ -972,19 +1280,58 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                         onClick={() => { handleQuickAdd(item); setShowSearchOverlay(false); }}
                                         className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90`}
                                     >
-                                        <div>
-                                            <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
-                                            <p className={`text-sm ${styles.textSec}`}>{item.portion}</p>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">{item.icon || '🍽️'}</span>
+                                            <div>
+                                                <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
+                                                <p className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                            </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`font-bold ${theme === 'dark' ? 'text-green-400' : 'text-emerald-600'}`}>{item.calories} kcal</p>
+                                            <p className={`font-bold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
                                             <Plus size={16} className={styles.accentBlueText} />
                                         </div>
                                     </button>
                                 ))}
                             </div>
+                        ) : selectedCategory ? (
+                            /* Category Items View */
+                            <div>
+                                <button
+                                    onClick={() => setSelectedCategory(null)}
+                                    className={`flex items-center gap-2 mb-4 text-sm font-semibold ${theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'}`}
+                                >
+                                    ← Back to Categories
+                                </button>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                                    {selectedCategory}
+                                </h3>
+                                <div className="space-y-2">
+                                    {(FOOD_BY_CATEGORY[selectedCategory] || []).map((item, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => { handleQuickAdd(item); setShowSearchOverlay(false); }}
+                                            className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90 active:scale-[0.98]`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-2xl">{item.icon || '🍽️'}</span>
+                                                <div>
+                                                    <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
+                                                    <p className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end gap-1">
+                                                <p className={`font-bold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
+                                                <div className={`p-1 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
+                                                    <Plus size={14} className={styles.accentBlueText} />
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         ) : searchQuery.length > 0 ? (
-                            <div className={`text-center py-12 ${styles.textSec}`}>
+                            <div className={`text-center py-12 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
                                 <Search size={48} className="mx-auto mb-4 opacity-20" />
                                 <p>No results found</p>
                                 <p className="text-sm mt-2">Not in database? Use AI Log to add custom foods</p>
@@ -992,16 +1339,17 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                         ) : (
                             /* Category Browse */
                             <div>
-                                <h3 className={`text-xs font-bold ${styles.textSec} uppercase tracking-widest mb-3`}>Browse by Category</h3>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>Browse by Category</h3>
                                 <div className="grid grid-cols-2 gap-3">
                                     {FOOD_CATEGORIES.map((cat, idx) => (
                                         <button
                                             key={idx}
-                                            className={`p-4 rounded-2xl text-left ${cardBg} ${styles.border} border transition-colors hover:opacity-90`}
+                                            onClick={() => handleCategorySelect(cat.name)}
+                                            className={`p-4 rounded-2xl text-left ${cardBg} ${styles.border} border transition-all hover:scale-[1.02] active:scale-95`}
                                         >
                                             <span className="text-2xl mb-2 block">{cat.icon}</span>
                                             <p className={`font-bold ${styles.textMain}`}>{cat.name}</p>
-                                            <p className={`text-xs ${styles.textSec}`}>{cat.items} items</p>
+                                            <p className={`text-xs ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{cat.items} items</p>
                                         </button>
                                     ))}
                                 </div>

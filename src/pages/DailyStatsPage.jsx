@@ -106,19 +106,19 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                 {/* 2. TDEE + BMR Row */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className={`p-5 rounded-[2rem] border ${styles.card} ${styles.border}`}>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#888] mb-1">TDEE</p>
-                        <p className="text-xl font-black text-white">{tdee} <span className="text-[10px] opacity-40">kcal</span></p>
-                        <p className="text-[9px] font-medium text-[#888] mt-1">Total daily burn estimate</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${styles.textSec} mb-1`}>TDEE</p>
+                        <p className={`text-xl font-black ${styles.textMain}`}>{tdee} <span className="text-[10px] opacity-40">kcal</span></p>
+                        <p className={`text-[9px] font-medium ${styles.textSec} mt-1`}>Total daily burn estimate</p>
                     </div>
                     <div className={`p-5 rounded-[2rem] border ${styles.card} ${styles.border}`}>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#888] mb-1">BMR</p>
-                        <p className="text-xl font-black text-white">{bmr} <span className="text-[10px] opacity-40">kcal</span></p>
-                        <p className="text-[9px] font-medium text-[#888] mt-1">Calories burned at rest</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${styles.textSec} mb-1`}>BMR</p>
+                        <p className={`text-xl font-black ${styles.textMain}`}>{bmr} <span className="text-[10px] opacity-40">kcal</span></p>
+                        <p className={`text-[9px] font-medium ${styles.textSec} mt-1`}>Calories burned at rest</p>
                     </div>
                 </div>
 
                 {/* 3. GOAL PACE Banner */}
-                <div className="p-4 rounded-2xl border border-white/5 flex items-center justify-center gap-3" style={{ backgroundColor: '#1a2a1a' }}>
+                <div className={`p-4 rounded-2xl border flex items-center justify-center gap-3 ${styles.card} ${styles.border}`}>
                    <Zap size={16} className={deficit >= 0 ? 'text-green-500' : 'text-orange-500'} />
                    <p className={`text-xs font-bold ${deficit >= 0 ? 'text-green-500' : 'text-orange-500'}`}>
                        At this rate → ~{Math.abs(kgPerWeek)} kg/week {deficit >= 0 ? 'loss' : 'gain'}
@@ -136,6 +136,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                             value={`${stepBurned} kcal`}
                             progress={(steps / 10000) * 100}
                             color="#FF9F0A"
+                            styles={styles}
                         />
                         <ActivityRow 
                             icon={<Dumbbell size={14} />} 
@@ -144,6 +145,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                             value={`${workoutBurned} kcal`}
                             progress={(workoutBurned / 500) * 100}
                             color="#FF9F0A"
+                            styles={styles}
                         />
                         <ActivityRow 
                             icon={<Moon size={14} />} 
@@ -152,6 +154,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                             value={`${bmr} kcal`}
                             progress={100}
                             color="#FF9F0A"
+                            styles={styles}
                         />
                     </div>
                 </div>
@@ -164,15 +167,15 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                     </div>
 
                     <div className="space-y-5">
-                        <MacroRow label="Carbohydrates" value={totals.carb} goal={250} color="#F5C542" />
-                        <MacroRow label="Protein" value={totals.pro} goal={180} color="#4A90D9" />
-                        <MacroRow label="Fats" value={totals.fat} goal={80} color="#E0607E" />
+                        <MacroRow label="Carbohydrates" value={totals.carb} goal={250} color="#F5C542" styles={styles} />
+                        <MacroRow label="Protein" value={totals.pro} goal={180} color="#4A90D9" styles={styles} />
+                        <MacroRow label="Fats" value={totals.fat} goal={80} color="#E0607E" styles={styles} />
                     </div>
                 </div>
 
                 {/* 6. 7-DAY TREND */}
                 <div className={`p-6 rounded-[2.5rem] border ${styles.card} ${styles.border}`}>
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#888] mb-6 px-1">7-Day Trend</h3>
+                    <h3 className={`text-[10px] font-bold uppercase tracking-widest ${styles.textSec} mb-6 px-1`}>7-Day Trend</h3>
                     <div className="flex items-end justify-between h-[80px] px-2">
                         {weeklyTrend.map((day, i) => {
                             const height = Math.min((day.burn / 1000) * 60, 60);
@@ -187,7 +190,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                                             {day.burn} kcal
                                         </div>
                                     </div>
-                                    <span className={`text-[10px] mt-2 font-bold ${day.isToday ? 'text-white' : 'text-[#888]'}`}>{day.label}</span>
+                                    <span className={`text-[10px] mt-2 font-bold ${day.isToday ? styles.textMain : styles.textSec}`}>{day.label}</span>
                                 </div>
                             );
                         })}
@@ -205,19 +208,19 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
     );
 };
 
-const ActivityRow = ({ icon, label, sub, value, progress, color }) => (
+const ActivityRow = ({ icon, label, sub, value, progress, color, styles }) => (
     <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-3">
-                <div className="p-1.5 rounded-lg bg-white/5 text-[#888]">{icon}</div>
+                <div className={`p-1.5 rounded-lg ${styles?.textSec || 'text-[#888]'}`} style={{ backgroundColor: 'rgba(128,128,128,0.1)' }}>{icon}</div>
                 <div className="flex flex-col">
-                    <span className="text-[13px] font-bold text-white">{label}</span>
-                    <span className="text-[10px] font-medium text-[#888]">{sub}</span>
+                    <span className={`text-[13px] font-bold ${styles?.textMain || 'text-white'}`}>{label}</span>
+                    <span className={`text-[10px] font-medium ${styles?.textSec || 'text-[#888]'}`}>{sub}</span>
                 </div>
             </div>
-            <span className="text-sm font-black text-white">{value}</span>
+            <span className={`text-sm font-black ${styles?.textMain || 'text-white'}`}>{value}</span>
         </div>
-        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(128,128,128,0.1)' }}>
             <div 
                 className="h-full transition-all duration-1000 ease-out rounded-full" 
                 style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: color }}
@@ -226,15 +229,15 @@ const ActivityRow = ({ icon, label, sub, value, progress, color }) => (
     </div>
 );
 
-const MacroRow = ({ label, value, goal, color }) => (
+const MacroRow = ({ label, value, goal, color, styles }) => (
     <div className="space-y-1.5">
         <div className="flex justify-between items-end px-0.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888]">{label}</span>
-            <span className="text-xs font-bold text-white">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${styles?.textSec || 'text-[#888]'}`}>{label}</span>
+            <span className={`text-xs font-bold ${styles?.textMain || 'text-white'}`}>
                 {Math.round(value)}g <span className="opacity-40 text-[10px]">/ {goal}g</span>
             </span>
         </div>
-        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(128,128,128,0.1)' }}>
             <div 
                 className="h-full transition-all duration-1000 ease-out rounded-full" 
                 style={{ width: `${Math.max(6, (value/goal)*100)}%`, backgroundColor: color, borderRadius: '2px' }}
