@@ -231,6 +231,7 @@ function MainApp() {
                         }}
                         updateWater={updateWater}
                         totalBurned={totalBurned}
+                        burnMetrics={burnMetrics}
                         onAddClick={handleOpenAddModal}
                         onAddExercise={() => handleOpenAddModal(null, 'exercise')}
                         onEditFood={(f) => { 

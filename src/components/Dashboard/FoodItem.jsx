@@ -1,50 +1,63 @@
 import React from 'react';
-import { Flame, CheckSquare, Square, X, Edit2, Trash2 } from 'lucide-react';
+import { Plus, X, Edit2, Trash2 } from 'lucide-react';
 import { THEMES } from '../../theme';
-import { MacroDonutChart } from './MealMacroSummary';
 
-export const FoodItem = ({ food, theme, isSelectionMode, isSelected, onClick, onToggleSelect }) => {
-    const isHighCalorie = food.calories > 500;
+const emojiMap = {
+    banana: '🍌', apple: '🍎', orange: '🍊', rice: '🍚', bread: '🍞',
+    chicken: '🍗', egg: '🥚', milk: '🥛', coffee: '☕', tea: '🍵',
+    water: '💧', juice: '🧃', salad: '🥗', fish: '🐟', beef: '🥩',
+    pasta: '🍝', pizza: '🍕', burger: '🍔', sandwich: '🥪', soup: '🍲',
+    yogurt: '🥛', cheese: '🧀', nuts: '🥜', fruit: '🍇', vegetable: '🥦',
+    drink: '🥤', smoothie: '🥤', shake: '🥤', cereal: '🥣', oats: '🥣',
+    default: '🍽️'
+};
+
+function getFoodEmoji(name) {
+    if (!name) return emojiMap.default;
+    const lower = name.toLowerCase();
+    for (const [key, emoji] of Object.entries(emojiMap)) {
+        if (lower.includes(key)) return emoji;
+    }
+    return emojiMap.default;
+}
+
+export const FoodItem = ({ food, theme, onClick }) => {
     const styles = THEMES[theme] || THEMES.dark;
+    const emoji = food.emoji || getFoodEmoji(food.name);
 
     return (
         <div
-            onClick={() => isSelectionMode ? onToggleSelect(food) : onClick(food)}
-            className={`
-          relative p-4 flex justify-between items-center transition-all duration-200 ease-out rounded-xl border mb-3 cursor-pointer
-          ${isHighCalorie
-                    ? (theme === 'dark' ? 'bg-[#1C1C1E] border-red-500/50' : 'bg-red-50 border-red-100')
-                    : styles.bg + ' ' + styles.border}
-      `}
+            onClick={() => onClick(food)}
+            className={`p-3.5 px-4 flex items-center gap-3 rounded-2xl cursor-pointer transition-all active:scale-[0.98] select-none ${theme === 'dark' ? 'bg-[#0a0a0a] border border-white/5' : 'bg-gray-50 border border-gray-100'}`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(food); }}
         >
-            <div className="flex items-center gap-3">
-                {isSelectionMode && (
-                    <div className={`mr-1 transition-all ${isSelected ? 'text-blue-500' : 'text-gray-300'}`}>
-                        {isSelected ? <CheckSquare size={20} className="text-current" /> : <Square size={20} />}
-                    </div>
-                )}
-
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full overflow-hidden shrink-0 ${isHighCalorie
-                    ? (theme === 'dark' ? 'bg-orange-500/10' : 'bg-orange-100')
-                    : (theme === 'dark' ? 'bg-green-500/10' : (theme === 'wooden' ? 'bg-[#556B2F]/20' : 'bg-emerald-100'))
-                    }`}>
-                    {isHighCalorie ? (
-                        <Flame size={16} color="#FF453A" fill="currentColor" className="animate-pulse" />
-                    ) : (
-                        <div className={`w-2.5 h-2.5 rounded-full ${theme === 'wooden' ? 'bg-[#556B2F]' : (theme === 'dark' ? 'bg-green-500' : 'bg-emerald-600')}`} />
+            <div className="flex-1 min-w-0">
+                <div className={`text-sm font-semibold truncate ${styles.textMain}`}>{food.name}</div>
+                {food.weight && <div className={`text-xs ${styles.textSec}`}>{food.weight}</div>}
+                <div className="flex gap-1.5 mt-1.5">
+                    {food.protein > 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                            P {food.protein}g
+                        </span>
                     )}
-                </div>
-
-                <div className="flex flex-col">
-                    <span className={`text-base font-semibold ${isHighCalorie ? 'text-[#FF3B30]' : styles.textMain}`}>{food.name}</span>
-                    {food.weight && <span className={`text-xs ${styles.textSec}`}>{food.weight}</span>}
+                    {food.carbs > 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-green-500/15 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                            C {food.carbs}g
+                        </span>
+                    )}
+                    {food.fat > 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-orange-500/15 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
+                            F {food.fat}g
+                        </span>
+                    )}
                 </div>
             </div>
 
-            <div className="flex flex-col items-end justify-center h-full">
-                <span className={`text-sm font-bold ${isHighCalorie ? 'text-[#FF3B30]' : styles.textSec}`}>
-                    {food.calories}
-                </span>
+            <div className="text-right shrink-0">
+                <div className={`text-base font-bold ${styles.textMain}`}>{food.calories}</div>
+                <div className={`text-[10px] ${styles.textSec}`}>kcal</div>
             </div>
         </div>
     );
@@ -65,13 +78,19 @@ export const FoodDetailModal = ({ food, theme, onClose, onEdit, onDelete }) => {
                     </div>
                     <button onClick={onClose} className={`p-2 rounded-full transition-colors ${styles.bg} ${styles.textSec}`}><X size={20} /></button>
                 </div>
-                <div className="flex flex-col items-center mb-8">
-                    <MacroDonutChart protein={food.protein} carbs={food.carbs} fat={food.fat} theme={theme} />
-                </div>
                 <div className="grid grid-cols-3 gap-3 mb-8">
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'wooden' ? 'bg-[#EAD8B1] border-[#8B4513]/10' : (theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-blue-50 border-blue-100')}`}><p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'wooden' ? 'text-[#3E2723]' : (theme === 'dark' ? 'text-blue-400' : 'text-blue-500')}`}>Protein</p><p className={`text-xl font-bold ${styles.textMain}`}>{food.protein}g</p></div>
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'wooden' ? 'bg-[#EAD8B1] border-[#8B4513]/10' : (theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-emerald-50 border-emerald-100')}`}><p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'wooden' ? 'text-[#556B2F]' : (theme === 'dark' ? 'text-green-400' : 'text-emerald-500')}`}>Carbs</p><p className={`text-xl font-bold ${styles.textMain}`}>{food.carbs}g</p></div>
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'wooden' ? 'bg-[#EAD8B1] border-[#8B4513]/10' : (theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-orange-50 border-orange-100')}`}><p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'wooden' ? 'text-[#8B4513]' : (theme === 'dark' ? 'text-orange-400' : 'text-orange-500')}`}>Fat</p><p className={`text-xl font-bold ${styles.textMain}`}>{food.fat}g</p></div>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-blue-50 border-blue-100'}`}>
+                        <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`}>Protein</p>
+                        <p className={`text-xl font-bold ${styles.textMain}`}>{food.protein}g</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-emerald-50 border-emerald-100'}`}>
+                        <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-green-400' : 'text-emerald-500'}`}>Carbs</p>
+                        <p className={`text-xl font-bold ${styles.textMain}`}>{food.carbs}g</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-orange-50 border-orange-100'}`}>
+                        <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-orange-400' : 'text-orange-500'}`}>Fat</p>
+                        <p className={`text-xl font-bold ${styles.textMain}`}>{food.fat}g</p>
+                    </div>
                 </div>
                 <div className="flex gap-3">
                     <button onClick={() => { onEdit(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-slate-700'}`}><Edit2 size={18} /> Edit</button>
