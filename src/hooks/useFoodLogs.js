@@ -223,6 +223,23 @@ export function useFoodLogs(user, currentDate) {
         }, { merge: true });
     };
 
+    const updateWeight = async (newWeight) => {
+        if (!user || !newWeight) return;
+        const dateStr = getLocalDateStr(currentDate);
+        const weightVal = Number(newWeight);
+        
+        // 1. Log in daily history
+        await setDoc(doc(db, 'users', user.uid, 'daily_logs', dateStr), { 
+            weight: weightVal,
+            updatedAt: serverTimestamp() 
+        }, { merge: true });
+
+        // 2. Update main user stats for real-time BMR/TDEE
+        await setDoc(doc(db, 'users', user.uid), {
+            weight: weightVal
+        }, { merge: true });
+    };
+
     return {
         logs,
         totals,
@@ -231,6 +248,7 @@ export function useFoodLogs(user, currentDate) {
         deleteFoodItem,
         deleteBatch,
         updateWater,
+        updateWeight,
         updateDayTotals
     };
 }

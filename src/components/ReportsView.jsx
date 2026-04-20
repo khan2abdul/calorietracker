@@ -1,17 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart2, Loader2, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart2, Loader2, Scale, Plus, Target } from 'lucide-react';
 import { THEMES } from '../theme';
 import { db } from '../firebase.js';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { getLocalDateStr } from '../utils';
 import EnergyHistoryGraph from './EnergyHistoryGraph';
+import WeightHistoryGraph from './WeightHistoryGraph';
 
-const ReportsView = ({ theme, user }) => {
-    const [viewType, setViewType] = useState('combined');
-    const [range, setRange] = useState('month'); // Default to month
+const ReportsView = ({ theme, user, minimal = false }) => {
+    const [viewType, setViewType] = useState('energy'); // 'energy' or 'weight'
+    const [energySubView, setEnergySubView] = useState('combined');
+    const [range, setRange] = useState('30d'); 
     const [historyData, setHistoryData] = useState([]);
+    const [weightLogs, setWeightLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [selectedDay, setSelectedDay] = useState(null); // For Month view interaction
+    const [newWeight, setNewWeight] = useState('');
+    const [isLoggingWeight, setIsLoggingWeight] = useState(false);
+    const [userStats, setUserStats] = useState(null);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         if (!user) return;
@@ -19,75 +25,112 @@ const ReportsView = ({ theme, user }) => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                let start, end;
                 const today = new Date();
+                const days = range === '2w' ? 14 : range === '30d' ? 30 : 60;
+                const start = new Date();
+                start.setDate(today.getDate() - days + 1);
+                start.setHours(0,0,0,0);
 
-                if (range === 'month') {
-                    start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-                    end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-                } else {
-                    const days = range === '2w' ? 14 : range === '30d' ? 30 : 60;
-                    end = new Date(); // Today
-                    start = new Date();
-                    start.setDate(today.getDate() - days + 1);
-                }
+                // Format for Firestore (YYYY-MM-DD) local
+                const startStr = getLocalDateStr(start);
 
-                // Format for Firestore (YYYY-MM-DD)
-                const startStr = start.toLocaleDateString('en-CA');
-                const endStr = end.toLocaleDateString('en-CA');
-
-                const q = query(
-                    collection(db, 'users', user.uid, 'daily_logs'),
-                    where('__name__', '>=', startStr),
-                    where('__name__', '<=', endStr)
+                // Run queries in parallel for performance
+                const logsQ = query(collection(db, 'users', user.uid, 'daily_logs'), where('__name__', '>=', startStr));
+                
+                // Fetch from the root 'activities' collection. 
+                // We omit the date inequality (>=) query to avoid triggering a Firebase composite index requirement error
+                const sessionsQ = query(
+                    collection(db, 'activities'), 
+                    where('userId', '==', user.uid)
                 );
+                
+                const userQ = query(collection(db, 'users'), where('__name__', '==', user.uid));
 
-                const snapshot = await getDocs(q);
+                const [snapshot, sessionsSnap, userSnap] = await Promise.all([
+                    getDocs(logsQ),
+                    getDocs(sessionsQ),
+                    getDocs(userQ)
+                ]);
+
+                // 1. Process Daily Logs
                 const fetchedData = {};
                 snapshot.docs.forEach(doc => {
                     fetchedData[doc.id] = doc.data();
                 });
 
-                const qAll = query(
-                    collection(db, 'activities'),
-                    where('userId', '==', user.uid)
-                );
-                const actSnap = await getDocs(qAll);
-                const actMap = {};
-                actSnap.docs.forEach(doc => {
-                    const actData = doc.data();
-                    const docTime = actData.date?.toMillis ? actData.date.toMillis() : 0;
-                    if (docTime > 0) {
-                        const actDate = new Date(docTime);
-                        const actDateStr = `${actDate.getFullYear()}-${String(actDate.getMonth() + 1).padStart(2, '0')}-${String(actDate.getDate()).padStart(2, '0')}`;
-                        if (!actMap[actDateStr]) actMap[actDateStr] = [];
-                        actMap[actDateStr].push({ id: doc.id, ...actData });
+                // 2. Process Activities (Workout Sessions)
+                const fetchedSessions = {};
+                const startMs = start.getTime(); // Used for manual date boundary filtering
+                
+                sessionsSnap.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.date && typeof data.date.toDate === 'function') {
+                        const actDate = data.date.toDate();
+                        // Only process activities that fall within our date range
+                        if (actDate.getTime() >= startMs) {
+                            const actDateStr = getLocalDateStr(actDate);
+                            if (!fetchedSessions[actDateStr]) fetchedSessions[actDateStr] = 0;
+                            fetchedSessions[actDateStr] += Number(data.caloriesBurned || 0);
+                        }
                     }
                 });
 
-                const data = [];
-                // Iterate from start to end to ensure all days are covered
-                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    const docData = fetchedData[dateStr] || {};
-                    const burned = docData.burned || (docData.exercises ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0) : 0);
-                    const consumed = docData.totals?.cals || 0;
+                // 3. Process User Stats
+                let currentUserStats = null;
+                if (!userSnap.empty) {
+                    currentUserStats = userSnap.docs[0].data();
+                    setUserStats(currentUserStats);
+                }
 
-                    const dayActs = actMap[dateStr] || [];
+                // 4. Assemble Data Arrays
+                const energyData = [];
+                const weightData = [];
 
-                    data.push({
-                        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                        fullDate: dateStr,
-                        dayNum: d.getDate(),
-                        weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
-                        consumed: consumed,
-                        burned: burned,
-                        net: consumed - burned,
-                        activities: dayActs
+                // Always include initial weight as the starting point if it exists
+                if (currentUserStats?.initialWeight && currentUserStats?.startDate) {
+                    const startD = new Date(currentUserStats.startDate);
+                    weightData.push({
+                        date: startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                        weight: currentUserStats.initialWeight,
+                        fullDate: currentUserStats.startDate, // Use full ISO for sub-day precision in X-axis
+                        isInitial: true
                     });
                 }
 
-                setHistoryData(data);
+                for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+                    const dateStr = getLocalDateStr(d);
+                    const docData = fetchedData[dateStr] || {};
+                    const sessionBurn = fetchedSessions[dateStr] || 0;
+                    
+                    const legacyBurn = docData.burned || (docData.exercises ? docData.exercises.reduce((acc, ex) => acc + (ex.calories || 0), 0) : 0);
+                    const burned = legacyBurn + sessionBurn;
+                    const consumed = docData.totals?.cals || 0;
+                    const weightVal = docData.weight || null;
+
+                    const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                    energyData.push({
+                        date: dateLabel,
+                        fullDate: dateStr,
+                        consumed: consumed,
+                        burned: burned,
+                        net: consumed - burned
+                    });
+
+                    // Add the weight log for the day. If it's the same day as initial, 
+                    // it will show as a second point because its fullDate (YYYY-MM-DD) 
+                    // is different from the initial's full ISO string.
+                    if (weightVal) {
+                        weightData.push({
+                            date: dateLabel,
+                            weight: weightVal,
+                            fullDate: dateStr + 'T23:59:59' // Put it at end of day for spacing
+                        });
+                    }
+                }
+
+                setHistoryData(energyData);
+                setWeightLogs(weightData.sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate)));
             } catch (error) {
                 console.error("Error fetching report data:", error);
             } finally {
@@ -96,180 +139,194 @@ const ReportsView = ({ theme, user }) => {
         };
 
         fetchData();
-    }, [user, range, currentMonth]);
+    }, [user, range, viewType, refreshKey]);
+
+    const handleLogWeight = async () => {
+        if (!newWeight || isNaN(newWeight)) return;
+        setIsLoggingWeight(true);
+        try {
+            const todayStr = getLocalDateStr(new Date());
+            const weightVal = Number(newWeight);
+
+            // Log in daily history
+            await setDoc(doc(db, 'users', user.uid, 'daily_logs', todayStr), { 
+                weight: weightVal,
+                updatedAt: serverTimestamp() 
+            }, { merge: true });
+
+            // Update main user record
+            await setDoc(doc(db, 'users', user.uid), {
+                weight: weightVal
+            }, { merge: true });
+
+            setNewWeight('');
+            setRefreshKey(prev => prev + 1); // Trigger fetch
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoggingWeight(false);
+        }
+    };
 
     const styles = THEMES[theme];
 
-    const changeMonth = (delta) => {
-        const newDate = new Date(currentMonth);
-        newDate.setMonth(newDate.getMonth() + delta);
-        setCurrentMonth(newDate);
-    };
-
-    // Helper for Calendar Grid
-    const getCalendarDays = () => {
-        if (range !== 'month') return [];
-        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const startDay = startOfMonth.getDay(); // 0 = Sunday
-        const days = [];
-
-        // Empty slots for start of month
-        for (let i = 0; i < startDay; i++) {
-            days.push({ empty: true, key: `empty-${i}` });
-        }
-
-        // Actual days
-        historyData.forEach(day => days.push(day));
-        return days;
-    };
-
     return (
-        <div className="space-y-6 animate-fade-in mt-12 mb-8">
-            <div className="flex justify-between items-center mb-4">
-                <h1 className={`text-2xl font-bold ${styles.textMain}`}>Energy Reports</h1>
-                <div className={`p-2 rounded-full ${styles.card}`}><BarChart2 size={20} className={styles.textMain} /></div>
+        <div className="space-y-6 animate-fade-in mt-6 mb-8">
+            {!minimal && (
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-2xl ${styles.card} border ${styles.border}`}>
+                            <BarChart2 size={22} className={styles.textMain} />
+                        </div>
+                        <div>
+                            <h1 className={`text-2xl font-black tracking-tight ${styles.textMain}`}>Insights</h1>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest opacity-50 ${styles.textSec}`}>Your Progress Reports</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* View Toggle */}
+            <div className={`p-1.5 rounded-3xl flex border mb-6 ${styles.card} ${styles.border}`}>
+                <button
+                    onClick={() => setViewType('energy')}
+                    className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
+                        ${viewType === 'energy'
+                            ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg')
+                            : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}
+                    `}
+                >
+                    <BarChart2 size={14} /> Energy
+                </button>
+                <button
+                    onClick={() => setViewType('weight')}
+                    className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
+                        ${viewType === 'weight'
+                            ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg')
+                            : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}
+                    `}
+                >
+                    <Scale size={14} /> Weight
+                </button>
             </div>
 
-            {/* Range Selector */}
-            <div className={`rounded-3xl p-2 flex justify-between items-center border mb-4 ${styles.card} ${styles.border}`}>
-                <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                    {['month', '2w', '30d', '60d'].map(r => (
+            {/* Range Selector & Energy Sub-View (only for energy) */}
+            <div className="flex flex-col gap-4">
+                <div className="flex gap-2 justify-center">
+                    {['2w', '30d', '60d'].map(r => (
                         <button
                             key={r}
                             onClick={() => setRange(r)}
-                            className={`px-4 py-2 rounded-full text-xs font-bold transition-colors whitespace-nowrap
+                            className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border
                                 ${range === r
-                                    ? (theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white')
-                                    : (theme === 'dark' ? 'text-gray-400' : 'text-gray-500')}
+                                    ? (theme === 'dark' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 scale-105' : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20 scale-105')
+                                    : (theme === 'dark' ? 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-400 hover:text-gray-600')}
                             `}
                         >
-                            {r === 'month' ? 'Month' : r === '2w' ? '14 Days' : r === '30d' ? '30 Days' : '60 Days'}
+                            {r === '2w' ? '14 Days' : r === '30d' ? '30 Days' : '60 Days'}
                         </button>
                     ))}
                 </div>
-            </div>
 
-            {/* View Type Toggle for Graphs */}
-            {range !== 'month' && (
-                <div className="flex justify-center mb-6">
-                    <div className={`p-1 rounded-full flex items-center border ${styles.card} ${styles.border}`}>
-                        {['combined', 'consumed', 'burned', 'net'].map(type => (
-                            <button
-                                key={type}
-                                onClick={() => setViewType(type)}
-                                className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all
-                                    ${viewType === type
-                                        ? (theme === 'dark' ? 'bg-white text-black shadow-sm' : 'bg-black text-white shadow-sm')
-                                        : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}
-                                `}
-                            >
-                                {type}
-                            </button>
-                        ))}
+                {viewType === 'energy' && (
+                    <div className="flex justify-center">
+                        <div className={`p-1 rounded-full flex border ${styles.card} ${styles.border}`}>
+                            {['combined', 'consumed', 'burned', 'net'].map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => setEnergySubView(type)}
+                                    className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all
+                                        ${energySubView === type
+                                            ? (theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white')
+                                            : (theme === 'dark' ? 'text-gray-500' : 'text-gray-400')}
+                                    `}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-
-            {range === 'month' && (
-                <div className="flex items-center justify-between mb-4 px-2">
-                    <button onClick={() => changeMonth(-1)} className={`p-2 rounded-full hover:bg-gray-200/20 ${styles.textSec}`}><ChevronLeft size={20} /></button>
-                    <span className={`text-lg font-bold ${styles.textMain}`}>{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                    <button onClick={() => changeMonth(1)} className={`p-2 rounded-full hover:bg-gray-200/20 ${styles.textSec}`}><ChevronRight size={20} /></button>
-                </div>
-            )}
+                )}
+            </div>
 
             {loading ? (
                 <div className="h-[300px] flex flex-col items-center justify-center opacity-50">
-                    <Loader2 className="animate-spin mb-2" />
-                    <span className="text-xs">Crunching numbers...</span>
+                    <Loader2 className="animate-spin mb-3 text-blue-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Crunching numbers...</span>
                 </div>
-            ) : historyData.length > 0 ? (
-                range === 'month' ? (
-                    <div className={`p-4 rounded-[2rem] border ${styles.card} ${styles.border}`}>
-                        {/* Weekday Headers */}
-                        <div className="grid grid-cols-7 mb-2 text-center">
-                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                <div key={i} className={`text-[10px] font-bold opacity-50 ${styles.textSec}`}>{d}</div>
-                            ))}
+            ) : viewType === 'energy' ? (
+                historyData.length > 0 ? (
+                    <EnergyHistoryGraph data={historyData} theme={theme} viewMode={energySubView} />
+                ) : (
+                    <div className={`h-[300px] flex items-center justify-center rounded-3xl border border-dashed ${styles.card} ${styles.border} opacity-50`}>
+                        <p className="text-xs font-bold uppercase tracking-widest">No data for this period</p>
+                    </div>
+                )
+            ) : (
+                <div className="space-y-6">
+                    {/* Weight History Table/Graph */}
+                    {weightLogs.length > 0 ? (
+                        <WeightHistoryGraph 
+                            data={weightLogs} 
+                            theme={theme} 
+                            userStats={userStats}
+                            rangeStart={getLocalDateStr(new Date(Date.now() - (range === '2w' ? 14 : range === '30d' ? 30 : 60) * 24 * 60 * 60 * 1000))}
+                            rangeEnd={getLocalDateStr(new Date())}
+                        />
+                    ) : (
+                        <div className={`p-8 rounded-[2.5rem] border border-dashed text-center ${styles.card} ${styles.border} opacity-60`}>
+                            <Scale size={40} className="mx-auto mb-4 opacity-20" />
+                            <p className="text-sm font-bold opacity-50">No weight entries yet</p>
+                            <p className="text-[10px] uppercase tracking-tighter mt-1">Log your first weigh-in below</p>
                         </div>
-                        {/* Calendar Grid */}
-                        <div className="grid grid-cols-7 gap-1">
-                            {getCalendarDays().map((day, i) => (
-                                day.empty ? (
-                                    <div key={day.key} className="aspect-square"></div>
-                                ) : (
-                                    <div
-                                        key={day.fullDate}
-                                        onClick={() => setSelectedDay(day)}
-                                        className={`aspect-square rounded-xl flex flex-col items-center justify-center relative border transition-all cursor-pointer hover:scale-105 active:scale-95
-                                            ${selectedDay?.fullDate === day.fullDate
-                                                ? (theme === 'dark' ? 'bg-blue-600 border-blue-500 ring-2 ring-blue-500/50' : 'bg-blue-500 border-blue-600 text-white shadow-lg shadow-blue-500/30')
-                                                : (theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-gray-50 border-gray-100 hover:bg-gray-100')}
-                                        `}
-                                    >
-                                        <span className={`text-xs font-bold mb-0.5 ${selectedDay?.fullDate === day.fullDate ? 'text-white' : styles.textMain}`}>{day.dayNum}</span>
-                                        {day.activities && day.activities.length > 0 && (
-                                            <span className="text-[10px] leading-none block mb-0.5">🏃</span>
-                                        )}
-                                        {(day.consumed > 0 || day.burned > 0) && (
-                                            <div className="flex flex-col gap-0.5 w-full px-1">
-                                                {day.consumed > 0 && <div className={`h-1 w-full rounded-full opacity-80 ${selectedDay?.fullDate === day.fullDate ? 'bg-white/50' : 'bg-blue-500'}`}></div>}
-                                                {day.burned > 0 && <div className={`h-1 w-full rounded-full opacity-80 ${selectedDay?.fullDate === day.fullDate ? 'bg-white/30' : 'bg-red-500'}`}></div>}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            ))}
+                    )}
+
+                    {/* Quick Log Weight Card */}
+                    <div className={`p-6 rounded-[2.5rem] border shadow-xl ${theme === 'dark' ? 'bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border-blue-500/20' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2.5 rounded-2xl bg-blue-500 shadow-lg shadow-blue-500/30">
+                                <Plus size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className={`text-lg font-black ${styles.textMain}`}>Log Weight</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest text-blue-500`}>Weekly Progress Check</p>
+                            </div>
                         </div>
 
-                        {/* Summary Card for Selected Day */}
-                        {selectedDay && (
-                            <div className={`mt-6 p-4 rounded-2xl border animate-fade-in ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : (theme === 'wooden' ? 'bg-[#EAD8B1] border-[#8B4513]/10' : 'bg-slate-50 border-slate-100')}`}>
-                                <p className={`text-center text-xs font-bold uppercase tracking-widest mb-3 ${styles.textSec}`}>{selectedDay.date}</p>
-                                <div className="flex justify-around items-center">
-                                    <div className="text-center">
-                                        <p className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>Intake</p>
-                                        <p className={`text-xl font-black ${styles.textMain}`}>{selectedDay.consumed}</p>
-                                    </div>
-                                    <div className={`h-8 w-px ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`}></div>
-                                    <div className="text-center">
-                                        <p className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Burned</p>
-                                        <p className={`text-xl font-black ${styles.textMain}`}>{selectedDay.burned}</p>
-                                    </div>
-                                    <div className={`h-8 w-px ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`}></div>
-                                    <div className="text-center">
-                                        <p className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>Net</p>
-                                        <p className={`text-xl font-black ${styles.textMain}`}>{selectedDay.net}</p>
-                                    </div>
+                        <div className="flex gap-3">
+                            <div className={`flex-1 flex items-center px-6 rounded-2xl border transition-all ${theme === 'dark' ? 'bg-black/20 border-white/5 focus-within:border-blue-500/50' : 'bg-white border-blue-100 focus-within:border-blue-400'}`}>
+                                <input 
+                                    type="number" 
+                                    value={newWeight}
+                                    onChange={(e) => setNewWeight(e.target.value)}
+                                    placeholder={userStats?.weight || "0.0"} 
+                                    className={`w-full py-4 bg-transparent text-xl font-black outline-none ${styles.textMain}`}
+                                />
+                                <span className={`text-sm font-bold ml-2 opacity-50 ${styles.textMain}`}>kg</span>
+                            </div>
+                            <button 
+                                onClick={handleLogWeight}
+                                disabled={isLoggingWeight || !newWeight}
+                                className={`px-8 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all active:scale-95 shadow-lg
+                                    ${isLoggingWeight || !newWeight 
+                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                                        : 'bg-blue-500 text-white shadow-blue-500/20 hover:bg-blue-400'}
+                                `}
+                            >
+                                {isLoggingWeight ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
+                            </button>
+                        </div>
+
+                        {userStats?.targetWeight && (
+                            <div className="mt-6 flex items-center justify-between p-4 rounded-xl bg-black/10">
+                                <div className="flex items-center gap-2">
+                                    <Target size={14} className="text-green-500" />
+                                    <span className="text-[10px] font-black uppercase text-gray-400">Target</span>
                                 </div>
-                                
-                                {selectedDay.activities && selectedDay.activities.length > 0 && (
-                                    <div className="mt-4 pt-3 border-t border-gray-200/20">
-                                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
-                                            🏃 Activities
-                                        </div>
-                                        {selectedDay.activities.map(a => (
-                                            <div key={a.id} className={`flex items-center justify-between py-1.5 border-b last:border-0 ${theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-200'}`}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>{a.activityType === 'running' ? '🏃' : a.activityType === 'walking' ? '🚶' : a.activityType === 'cycling' ? '🚴' : a.activityType === 'skipping' ? '🦘' : '⚡'}</span>
-                                                    <span className={`text-sm tracking-wide capitalize ${styles.textMain}`}>{a.activityType}</span>
-                                                </div>
-                                                <span className="text-sm text-[#ff5733] font-semibold">
-                                                    -{a.caloriesBurned} kcal
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                <span className={`text-sm font-black ${styles.textMain}`}>{userStats.targetWeight} kg</span>
                             </div>
                         )}
                     </div>
-                ) : (
-                    <EnergyHistoryGraph data={historyData} theme={theme} viewMode={viewType} />
-                )
-            ) : (
-                <div className={`h-[300px] flex flex-col items-center justify-center rounded-3xl border ${styles.card} ${styles.border} opacity-60`}>
-                    <p>No data for this period.</p>
                 </div>
             )}
         </div>

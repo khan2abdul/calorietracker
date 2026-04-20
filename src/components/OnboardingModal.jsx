@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Ruler, Weight, Target, Calendar, Clock } from 'lucide-react';
 import { THEMES } from '../theme';
-
-const TARGET_DAY_OPTIONS = [30, 45, 60, 75, 90];
+import { TARGET_DAY_OPTIONS } from '../config';
 
 const OnboardingModal = ({ userStats, onComplete, theme }) => {
     const [stats, setStats] = useState(userStats || { age: '', weight: '', height: '', targetWeight: '', targetDays: 90 });

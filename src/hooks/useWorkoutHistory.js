@@ -1,18 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, limit, startAfter, onSnapshot, getDocs, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase.js';
+import { ACTIVITY_EMOJI } from '../config';
 
-export const activityEmoji = {
-    walking: '🚶',
-    running: '🏃',
-    skipping: '⏭️',
-    cycling: '🚴',
-    gym: '🏋️',
-    hiit: '🔥',
-    cardio: '❤️‍🔥',
-    exercise: '💪',
-    other: '⚡'
-};
+export const activityEmoji = ACTIVITY_EMOJI;
 
 export function formatSessionDate(timestamp) {
     if (!timestamp) return '';

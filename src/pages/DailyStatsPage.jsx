@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, TrendingUp, Activity, Droplets, PieChart, Info, Moon, Dumbbell, Zap } from 'lucide-react';
 import { THEMES } from '../theme';
 import { calculateBMR, calculateTDEE } from '../utils';
+import { calculateMacroGoals, KCAL_PER_KG, STEPS_PER_KM, DEFAULT_BURN_GOAL_PCT } from '../config';
 import { db, auth } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -15,6 +16,8 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
     const tdee = Math.round(calculateTDEE(userStats));
     const netCalories = totals.cals - totalBurned;
     const deficit = tdee - totals.cals + totalBurned;
+
+    const macroGoals = useMemo(() => calculateMacroGoals(goal), [goal]);
 
     // Weekly Trend Data
     const [weeklyTrend, setWeeklyTrend] = useState([]);
@@ -54,7 +57,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
         return unsub;
     }, []);
 
-    const kgPerWeek = ((deficit * 7) / 7700).toFixed(2);
+    const kgPerWeek = ((deficit * 7) / KCAL_PER_KG).toFixed(2);
 
     return (
         <div className={`min-h-screen animate-fade-in pb-32 ${styles.bg}`}>
@@ -134,7 +137,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                             label="Steps" 
                             sub={`${steps} steps`}
                             value={`${stepBurned} kcal`}
-                            progress={(steps / 10000) * 100}
+                            progress={(steps / (userStats.stepGoal || 10000)) * 100}
                             color="#FF9F0A"
                             styles={styles}
                         />
@@ -143,7 +146,7 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                             label="Workout" 
                             sub={`${workoutMinutes} min`}
                             value={`${workoutBurned} kcal`}
-                            progress={(workoutBurned / 500) * 100}
+                            progress={(workoutBurned / (userStats.workoutBurnGoal || 500)) * 100}
                             color="#FF9F0A"
                             styles={styles}
                         />
@@ -167,9 +170,9 @@ const DailyStatsPage = ({ totals, goal, waterIntake, burnMetrics, theme, userSta
                     </div>
 
                     <div className="space-y-5">
-                        <MacroRow label="Carbohydrates" value={totals.carb} goal={250} color="#F5C542" styles={styles} />
-                        <MacroRow label="Protein" value={totals.pro} goal={180} color="#4A90D9" styles={styles} />
-                        <MacroRow label="Fats" value={totals.fat} goal={80} color="#E0607E" styles={styles} />
+                        <MacroRow label="Carbohydrates" value={totals.carb} goal={macroGoals.carb} color="#F5C542" styles={styles} />
+                        <MacroRow label="Protein" value={totals.pro} goal={macroGoals.pro} color="#4A90D9" styles={styles} />
+                        <MacroRow label="Fats" value={totals.fat} goal={macroGoals.fat} color="#E0607E" styles={styles} />
                     </div>
                 </div>
 

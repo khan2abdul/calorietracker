@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Activity, Sun, Moon, TreeDeciduous, Utensils, Minus, Plus, TrendingDown,
-    ChevronLeft, ChevronRight, Calendar as CalendarIcon
+    ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { query, collection, where, onSnapshot } from 'firebase/firestore';
@@ -13,6 +13,7 @@ import MealMacroSummary from '../components/Dashboard/MealMacroSummary';
 import { FoodItem } from '../components/Dashboard/FoodItem';
 import { useTodayBurned } from '../hooks/useTodayBurned';
 import WaterInputModal from '../components/WaterInputModal';
+import { ACTIVITY_EMOJI, calculateMacroGoals, MEAL_ICONS, DEFAULT_CALORIE_GOAL, DEFAULT_BURN_GOAL_PCT, KCAL_PER_KG } from '../config';
 
 const DashboardPage = ({
     logs, userStats, totals, goal, waterIntake,
@@ -25,6 +26,21 @@ const DashboardPage = ({
     const burned = totalBurned || 0; 
     const [dayActivities, setDayActivities] = useState([]);
     const [showWaterModal, setShowWaterModal] = useState(false);
+    const [expandedMeals, setExpandedMeals] = useState(() => {
+        const hour = new Date().getHours();
+        let currentMeal = 'Snacks';
+        if (hour >= 4 && hour < 11) currentMeal = 'Breakfast';
+        else if (hour >= 11 && hour < 16) currentMeal = 'Lunch';
+        else if (hour >= 16 && hour < 18) currentMeal = 'Snacks';
+        else if (hour >= 18 && hour < 22) currentMeal = 'Dinner';
+        
+        return {
+            Breakfast: currentMeal === 'Breakfast',
+            Lunch: currentMeal === 'Lunch',
+            Dinner: currentMeal === 'Dinner',
+            Snacks: currentMeal === 'Snacks'
+        };
+    });
 
     useEffect(() => {
         if (!auth.currentUser) return;
@@ -73,25 +89,23 @@ const DashboardPage = ({
 
     const estimateDate = useMemo(() => {
         if (!userStats.targetWeight || !userStats.weight) return null;
-        const diff = Math.abs(userStats.weight - userStats.targetWeight);
-        if (diff === 0) return "Achieved!";
+        if (userStats.weight === userStats.targetWeight) return "Achieved!";
         
         let days;
         if (userStats.targetDays === 'Auto') {
+            const diff = Math.abs(userStats.weight - userStats.targetWeight);
             const deficit = (goal - totals.cals) + totalBurned;
-            // Standard: 7700 kcal = 1kg
-            // We assume a minimum reasonable deficit of 300 if user is overeating or balanced
-            const projectedDailyDeficit = deficit > 100 ? deficit : 500; 
-            days = Math.ceil((diff * 7700) / projectedDailyDeficit);
-            // Cap it to something reasonable
+            const projectedDailyDeficit = deficit > 100 ? deficit : DEFAULT_CALORIE_DEFICIT; 
+            days = Math.ceil((diff * KCAL_PER_KG) / projectedDailyDeficit);
             days = Math.min(Math.max(days, 7), 365);
         } else {
             days = userStats.targetDays || 90;
         }
 
-        const date = new Date();
-        date.setDate(date.getDate() + days);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const start = userStats.startDate ? new Date(userStats.startDate) : new Date();
+        const goalDate = new Date(start);
+        goalDate.setDate(start.getDate() + days);
+        return goalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }, [userStats, totals.cals, totalBurned, goal]);
 
     const getGreeting = () => {
@@ -103,17 +117,7 @@ const DashboardPage = ({
 
     const userName = auth.currentUser?.displayName?.split(' ')[0] || "there";
 
-    const emojiMap = {
-        running: '🏃',
-        walking: '🚶',
-        cycling: '🚴',
-        skipping: '🦘',
-        gym: '🏋️',
-        hiit: '🔥',
-        cardio: '❤️‍🔥',
-        exercise: '💪',
-        other: '⚡'
-    };
+    const emojiMap = ACTIVITY_EMOJI;
 
     const scrollToMeal = (meal) => {
         const element = document.getElementById(`meal-section-${meal}`);
@@ -126,14 +130,7 @@ const DashboardPage = ({
     const waterConsumed = waterIntake * 250;
     const netCalChange = totals.cals - totalBurned;
 
-    const macroGoals = useMemo(() => {
-        const g = goal || 2000;
-        return {
-            pro: Math.round((g * 0.30) / 4),
-            carb: Math.round((g * 0.40) / 4),
-            fat: Math.round((g * 0.30) / 9)
-        };
-    }, [goal]);
+    const macroGoals = useMemo(() => calculateMacroGoals(goal), [goal]);
 
     const changeDate = (offset) => {
         const newDate = new Date(currentDate);
@@ -227,6 +224,11 @@ const DashboardPage = ({
                 {/* Eaten */}
                 <div className="relative rounded-full w-full aspect-square flex flex-col items-center justify-center overflow-hidden"
                      style={{ background: 'radial-gradient(circle at 50% 40%, rgba(245,158,11,0.45) 0%, rgba(245,158,11,0.15) 50%, rgba(245,158,11,0.05) 100%)', border: '2px solid rgba(245,158,11,0.5)', boxShadow: '0 0 40px rgba(245,158,11,0.35), inset 0 0 20px rgba(245,158,11,0.1)' }}>
+                    {/* Fill progress */}
+                    <div className="absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out" style={{ height: `${Math.min((totals.cals / goal) * 100, 100)}%` }}>
+                        <div className="absolute inset-0" style={{ background: totals.cals > goal ? 'linear-gradient(to top, rgba(239,68,68,0.5) 0%, rgba(239,68,68,0.15) 100%)' : 'linear-gradient(to top, rgba(245,158,11,0.5) 0%, rgba(245,158,11,0.15) 100%)' }} />
+                        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: totals.cals > goal ? 'rgba(239,68,68,0.8)' : 'rgba(245,158,11,0.8)', boxShadow: totals.cals > goal ? '0 0 8px rgba(239,68,68,0.6)' : '0 0 8px rgba(245,158,11,0.6)' }} />
+                    </div>
                     <p className="relative text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1">Eaten</p>
                     <p className="relative text-3xl font-black text-amber-50 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]">{Math.round(totals.cals)}<span className="text-[11px] font-bold text-amber-200/70 ml-1">kcal</span></p>
                 </div>
@@ -235,9 +237,9 @@ const DashboardPage = ({
                 <div className="relative rounded-full w-full aspect-square flex flex-col items-center justify-center overflow-hidden"
                      style={{ background: theme === 'dark' ? 'linear-gradient(180deg, rgba(60,60,70,0.6) 0%, rgba(40,40,50,0.4) 100%)' : 'linear-gradient(180deg, rgba(60,60,70,0.15) 0%, rgba(40,40,50,0.05) 100%)', border: '1px solid rgba(100,100,120,0.25)' }}>
                     {/* Progress bar at bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out" style={{ height: `${Math.min((totalBurned / goal) * 100, 100)}%` }}>
-                        <div className="absolute inset-0" style={{ background: netCalChange <= 0 ? 'linear-gradient(to top, rgba(52,199,89,0.5) 0%, rgba(52,199,89,0.15) 100%)' : 'linear-gradient(to top, rgba(255,149,0,0.5) 0%, rgba(255,149,0,0.15) 100%)' }} />
-                        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: netCalChange <= 0 ? 'rgba(52,199,89,0.8)' : 'rgba(255,149,0,0.8)', boxShadow: netCalChange <= 0 ? '0 0 8px rgba(52,199,89,0.6)' : '0 0 8px rgba(255,149,0,0.6)' }} />
+                    <div className="absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out" style={{ height: `${Math.min((totalBurned / (goal * DEFAULT_BURN_GOAL_PCT)) * 100, 100)}%` }}>
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(239,68,68,0.5) 0%, rgba(239,68,68,0.15) 100%)' }} />
+                        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'rgba(239,68,68,0.8)', boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
                     </div>
                     <p className="relative text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Burned</p>
                     <p className="relative text-2xl font-black text-white">{Math.round(totalBurned)}<span className="text-[10px] font-bold text-gray-400 ml-0.5">kcal</span></p>
@@ -319,11 +321,10 @@ const DashboardPage = ({
 
             {/* Diary Preview Header */}
             <div className="pt-6 flex justify-between items-center px-1 mb-4">
-                <h3 className={`label-text ${styles.textMain}`}>Daily Diary</h3>
-                <span className="caption-text">Scroll for meals</span>
+                <h3 className={`label-text tracking-widest uppercase font-bold text-xs opacity-70 ${styles.textSec}`}>Daily Diary</h3>
             </div>
             
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 -mx-6 px-6 pb-6 no-scrollbar">
+                        <div className="mb-6 space-y-3">
                 {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map(meal => {
                     const mealCals = logs[meal].reduce((acc, i) => acc + i.calories, 0);
                     const mealStats = logs[meal].reduce((acc, item) => ({
@@ -335,76 +336,85 @@ const DashboardPage = ({
                     const pPct = (mealStats.pro / totalGrams) * 100;
                     const cPct = (mealStats.carb / totalGrams) * 100;
                     const fPct = (mealStats.fat / totalGrams) * 100;
-                    const isSelectionMode = selectionState.meal === meal;
+                    
+                    const isExpanded = expandedMeals[meal];
+                    const mealIcons = { Breakfast: '🌅', Lunch: '🌞', Dinner: '🌙', Snacks: '🍎' };
 
                     return (
-                        <div key={meal} id={`meal-section-${meal}`} className="snap-center min-w-[88vw] md:min-w-[340px]">
-                            <div className={`rounded-[2.5rem] p-6 border relative overflow-hidden transition-all shadow-xl shadow-black/5 ${styles.card} ${styles.border}`}>
-                                {/* Meal Header */}
-                                <div className="flex justify-between items-center mb-4 relative z-10">
-                                    <h3 className={`text-xl font-extrabold tracking-tight ${styles.textMain}`}>{meal}</h3>
-                                    <div className={`px-3 py-1.5 rounded-full font-bold text-sm ${theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                        {mealCals} <span className="text-[10px] opacity-70">kcal</span>
+                        <div key={meal} className={`rounded-[1.25rem] border transition-all overflow-hidden ${theme === 'dark' ? 'bg-[#1A1A1A] border-[rgba(255,255,255,0.06)]' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <div 
+                                className="p-4 flex justify-between items-center cursor-pointer active:scale-[0.99] transition-transform"
+                                onClick={() => setExpandedMeals(prev => ({ ...prev, [meal]: !prev[meal] }))}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="text-xl">{mealIcons[meal]}</div>
+                                    <div>
+                                        <h3 className={`text-base font-bold ${styles.textMain}`}>{meal}</h3>
+                                        <p className="text-[12px] font-medium text-[#888888]">{Math.round(mealCals)} kcal</p>
                                     </div>
                                 </div>
-
-                                {/* Macro Bars */}
-                                {mealCals > 0 && (
-                                    <div className={`mb-4 p-3 rounded-xl ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-gray-50'}`}>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center gap-1.5 w-16 shrink-0">
-                                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                                    <span className={`text-[10px] font-bold ${styles.textSec}`}>Protein</span>
-                                                </div>
-                                                <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
-                                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(pPct, 100)}%` }} />
-                                                </div>
-                                                <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.pro)}g</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center gap-1.5 w-16 shrink-0">
-                                                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                                                    <span className={`text-[10px] font-bold ${styles.textSec}`}>Carbs</span>
-                                                </div>
-                                                <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
-                                                    <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(cPct, 100)}%` }} />
-                                                </div>
-                                                <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.carb)}g</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center gap-1.5 w-16 shrink-0">
-                                                    <span className="w-2 h-2 rounded-full bg-orange-500" />
-                                                    <span className={`text-[10px] font-bold ${styles.textSec}`}>Fat</span>
-                                                </div>
-                                                <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
-                                                    <div className="h-full bg-orange-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(fPct, 100)}%` }} />
-                                                </div>
-                                                <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.fat)}g</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Divider */}
-                                {mealCals > 0 && <div className={`h-px mb-4 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-200'}`} />}
-
-                                {/* Food Items */}
-                                <div className="space-y-2">
-                                    {logs[meal].length > 0 ? (
-                                        logs[meal].map((food) => (
-                                            <FoodItem key={food.uid} food={food} theme={theme} onClick={onFoodClick} />
-                                        ))
-                                    ) : (
-                                        <div className={`flex flex-col items-center justify-center h-28 gap-2 border-2 border-dashed rounded-2xl ${theme === 'dark' ? 'border-white/5' : 'border-gray-200/50'}`}>
-                                            <div className={`p-2.5 rounded-full ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
-                                                <Plus size={18} className={`opacity-40 ${styles.textSec}`} />
-                                            </div>
-                                            <span className={`text-xs font-medium opacity-50 ${styles.textSec}`}>No food logged</span>
-                                        </div>
-                                    )}
+                                <div className="flex items-center gap-4">
+                                    {isExpanded ? <ChevronUp size={16} className="text-[#888888]" /> : <ChevronDown size={16} className="text-[#888888]" />}
                                 </div>
                             </div>
+
+                            {isExpanded && (
+                                <div className="px-4 pb-4 animate-fade-in border-t border-[rgba(255,255,255,0.03)] pt-4" onClick={(e) => e.stopPropagation()}>
+                                    {mealCals > 0 && (
+                                        <div className={`mb-4 p-3 rounded-xl ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-gray-50'}`}>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 w-16 shrink-0">
+                                                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                                        <span className={`text-[10px] font-bold ${styles.textSec}`}>Protein</span>
+                                                    </div>
+                                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
+                                                        <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(pPct, 100)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.pro)}g</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 w-16 shrink-0">
+                                                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                                                        <span className={`text-[10px] font-bold ${styles.textSec}`}>Carbs</span>
+                                                    </div>
+                                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
+                                                        <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(cPct, 100)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.carb)}g</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 w-16 shrink-0">
+                                                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                                                        <span className={`text-[10px] font-bold ${styles.textSec}`}>Fat</span>
+                                                    </div>
+                                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-200'}`}>
+                                                        <div className="h-full bg-orange-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(fPct, 100)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold w-8 text-right ${styles.textSec}`}>{Math.round(mealStats.fat)}g</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {mealCals > 0 && <div className={`h-px mb-4 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-200'}`} />}
+
+                                    <div className="space-y-2">
+                                        {logs[meal].length > 0 ? (
+                                            logs[meal].map((food) => (
+                                                <FoodItem key={food.uid} food={food} theme={theme} onClick={onFoodClick} />
+                                            ))
+                                        ) : (
+                                            <div className={`flex flex-col items-center justify-center h-28 gap-2 border-2 border-dashed rounded-2xl cursor-pointer hover:opacity-80 active:scale-95 transition ${theme === 'dark' ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200/50 bg-gray-50'}`} onClick={() => onAddClick(meal, 'food')}>
+                                                <div className={`p-2.5 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`}>
+                                                    <Plus size={18} className={`opacity-60 ${styles.textMain}`} />
+                                                </div>
+                                                <span className={`text-xs font-bold opacity-80 ${styles.textMain}`}>Tap to log {meal}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     );
                 })}

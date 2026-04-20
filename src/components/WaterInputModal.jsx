@@ -4,6 +4,14 @@ import { Droplets, Minus, Plus, X } from 'lucide-react';
 const WaterInputModal = ({ isOpen, onClose, currentGlasses, onAdd, theme }) => {
     const [glasses, setGlasses] = useState(currentGlasses || 0);
 
+    // Sync state with prop when modal opens or prop changes
+    React.useEffect(() => {
+        if (isOpen) {
+            setGlasses(currentGlasses || 0);
+        }
+    }, [isOpen, currentGlasses]);
+
+
     if (!isOpen) return null;
 
     const handleAdd = () => {

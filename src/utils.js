@@ -1,3 +1,14 @@
+import {
+    MEAL_TIME_BOUNDARIES,
+    KCAL_PER_KG,
+    SAFE_CALORIE_FLOOR,
+    DEFAULT_CALORIE_GOAL,
+    DEFAULT_CALORIE_DEFICIT,
+    getTimeBasedMeal,
+} from './config';
+
+export { getTimeBasedMeal } from './config';
+
 export const generateHistoryData = (days) => {
     const data = [];
     const today = new Date();
@@ -5,7 +16,6 @@ export const generateHistoryData = (days) => {
         const d = new Date(today);
         d.setDate(today.getDate() - i);
 
-        // Simulate data
         const consumed = Math.floor(1800 + Math.random() * 800);
         const burned = Math.floor(300 + Math.random() * 1000);
 
@@ -31,22 +41,10 @@ export function getDayBoundaries(date) {
     };
 }
 
-export const getTimeBasedMeal = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 11) return 'Breakfast';
-    if (hour >= 11 && hour < 16) return 'Lunch';
-    if (hour >= 16 && hour < 18) return 'Snacks';
-    if (hour >= 18 && hour < 22) return 'Dinner';
-    return 'Snacks';
-};
-
-/**
- * Calculate BMR using Mifflin-St Jeor Formula
- */
 export const calculateBMR = (stats) => {
     const { weight, height, age, gender } = stats;
     if (!weight || !height || !age) return 0;
-    
+
     if (gender === 'female') {
         return (10 * weight) + (6.25 * height) - (5 * age) - 161;
     } else {
@@ -54,13 +52,10 @@ export const calculateBMR = (stats) => {
     }
 };
 
-/**
- * Calculate TDEE based on activity levels
- */
 export const calculateTDEE = (stats) => {
     const bmr = calculateBMR(stats);
     if (bmr === 0) return 0;
-    
+
     const multipliers = {
         sedentary: 1.2,
         light: 1.375,
@@ -71,29 +66,23 @@ export const calculateTDEE = (stats) => {
     return bmr * (multipliers[stats.activity] || 1.2);
 };
 
-/**
- * Calculates Goal Calories using Mifflin-St Jeor Formula
- */
 export const calculateGoalCals = (stats) => {
     const tdee = calculateTDEE(stats);
-    if (tdee === 0) return 2000;
+    if (tdee === 0) return DEFAULT_CALORIE_GOAL;
 
     const { weight, targetWeight, targetDays } = stats;
 
-    // 3. Weight Diff Deficit/Surplus
     if (targetWeight && targetWeight !== weight && targetDays && targetDays !== 'Auto') {
-        const weightDiff = (targetWeight - weight); // e.g. -8
-        const totalCals = weightDiff * 7700; // e.g. -61600
-        const dailyChange = totalCals / targetDays; // e.g. -2053
-        
+        const weightDiff = (targetWeight - weight);
+        const totalCals = weightDiff * KCAL_PER_KG;
+        const dailyChange = totalCals / targetDays;
+
         let goal = tdee + dailyChange;
-        
-        // Safety checks: don't go below 1200 or above 5000 unless specified
-        return Math.max(1200, Math.round(goal));
+
+        return Math.max(SAFE_CALORIE_FLOOR, Math.round(goal));
     }
 
-    // Default: Maintenance - 500 (standard weight loss)
-    return Math.round(tdee - 500);
+    return Math.round(tdee - DEFAULT_CALORIE_DEFICIT);
 };
 
 export const getLocalDateStr = (date) => {

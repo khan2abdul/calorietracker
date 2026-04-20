@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'rea
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query, where, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query, where, Timestamp, serverTimestamp, orderBy, limit, getDocs } from 'firebase/firestore';
 
 import { THEMES } from './theme';
 import { getTimeBasedMeal, calculateGoalCals, getLocalDateStr } from './utils';
@@ -141,6 +141,23 @@ function MainApp() {
             if (snap.exists()) {
                 const data = snap.data();
                 setUserStats(prev => ({ ...prev, ...data }));
+                
+                // Initialization for existing users
+                if (data.weight && (!data.startDate || !data.initialWeight || data.startDate.includes('2026-04-20'))) {
+                    const runInitialization = async () => {
+                        const updates = {};
+                        // Force April 2nd start date as requested
+                        if (!data.startDate || data.startDate.includes('2026-04-20')) {
+                            updates.startDate = new Date('2026-04-02T00:00:00').toISOString(); 
+                        }
+                        if (!data.initialWeight) updates.initialWeight = data.weight;
+                        
+                        if (Object.keys(updates).length > 0) {
+                            await setDoc(userDoc, updates, { merge: true });
+                        }
+                    };
+                    runInitialization();
+                }
             } else {
                 setUserStats(prev => ({ ...prev, needsOnboarding: true }));
             }
@@ -151,7 +168,13 @@ function MainApp() {
     const handleOnboarding = async (data) => {
         if (!user) return;
         try {
-            const finalStats = { ...data, needsOnboarding: false };
+            const now = new Date().toISOString();
+            const finalStats = { 
+                ...data, 
+                needsOnboarding: false,
+                startDate: now,
+                initialWeight: data.weight
+            };
             finalStats.goalCals = calculateGoalCals(finalStats);
             await setDoc(doc(db, 'users', user.uid), finalStats, { merge: true });
             setUserStats(finalStats);

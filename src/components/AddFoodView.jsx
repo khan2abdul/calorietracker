@@ -339,15 +339,8 @@ const WeightEditor = ({ value, onChange, onClose, theme }) => {
     );
 };
 
-// Change #3: Time-aware meal auto-selection
-const getTimeBasedMeal = () => {
-    const h = new Date().getHours();
-    if (h >= 5 && h < 11) return 'Breakfast';
-    if (h >= 11 && h < 15) return 'Lunch';
-    if (h >= 15 && h < 18) return 'Snacks';
-    if (h >= 18 && h < 23) return 'Dinner';
-    return 'Snacks'; // 11 PM – 5 AM
-};
+// Change #3: Time-aware meal auto-selection (centralized in config.js)
+import { getTimeBasedMeal } from '../config';
 
 // ==========================================
 // MAIN COMPONENT
