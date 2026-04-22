@@ -7,7 +7,7 @@ import { updateProfile } from 'firebase/auth';
 import PerformanceReports from './ReportsView.jsx';
 import { TARGET_DAY_OPTIONS } from '../config';
 
-const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme }) => {
+const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme, onLogWeight }) => {
     const styles = THEMES[theme];
     const [isEditing, setIsEditing] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -35,6 +35,9 @@ const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme }) =>
     };
 
     const handleSave = () => {
+        if (tempStats.weight !== userStats.weight && onLogWeight) {
+            onLogWeight(tempStats.weight);
+        }
         onUpdateStats(tempStats);
         setIsEditing(false);
     };
@@ -126,7 +129,7 @@ const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme }) =>
 
                 {/* Progress Group */}
                 <div className="grid grid-cols-3 gap-3">
-                    <CompactStatItem icon={<History size={14} />} label="Initial" field="initialWeight" value={userStats?.initialWeight} unit="kg" color="cyan" isEditing={isEditing} tempStats={tempStats} handleChange={handleChange} theme={theme} styles={styles} />
+                    <CompactStatItem icon={<History size={14} />} label="Initial" field="initialWeight" value={userStats?.initialWeight} unit="kg" color="cyan" isEditing={false} tempStats={tempStats} handleChange={handleChange} theme={theme} styles={styles} />
                     <CompactStatItem icon={<Target size={14} />} label="Goal" field="targetWeight" value={userStats?.targetWeight} unit="kg" color="purple" isEditing={isEditing} tempStats={tempStats} handleChange={handleChange} theme={theme} styles={styles} />
                     <CompactStatItem icon={<Clock size={14} />} label="Started" field="startDate" value={userStats?.startDate ? new Date(userStats.startDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '--'} unit="" color="yellow" isEditing={isEditing} tempStats={tempStats} handleChange={handleChange} theme={theme} styles={styles} inputType="date" />
                 </div>
@@ -160,7 +163,7 @@ const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme }) =>
             )}
 
             <div className={`mt-8 pt-8 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
-                <PerformanceReports theme={theme} user={user} minimal={false} />
+                <PerformanceReports theme={theme} user={user} minimal={false} onLogWeight={onLogWeight} />
             </div>
 
             {/* Subtle Feedback Footer */}

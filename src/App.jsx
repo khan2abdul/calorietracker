@@ -77,7 +77,7 @@ function MainApp() {
     const { 
         logs, totals, waterIntake, 
         addFoodItem, deleteFoodItem, deleteBatch: deleteBatchFood, 
-        updateWater, updateDayTotals 
+        updateWater, updateDayTotals, updateWeight
     } = useFoodLogs(user, currentDate);
     
     const { addActivity, deleteActivity } = useActivities(user, currentDate);
@@ -143,13 +143,10 @@ function MainApp() {
                 setUserStats(prev => ({ ...prev, ...data }));
                 
                 // Initialization for existing users
-                if (data.weight && (!data.startDate || !data.initialWeight || data.startDate.includes('2026-04-20'))) {
+                if (data.weight && (!data.startDate || !data.initialWeight)) {
                     const runInitialization = async () => {
                         const updates = {};
-                        // Force April 2nd start date as requested
-                        if (!data.startDate || data.startDate.includes('2026-04-20')) {
-                            updates.startDate = new Date('2026-04-02T00:00:00').toISOString(); 
-                        }
+                        if (!data.startDate) updates.startDate = new Date().toISOString();
                         if (!data.initialWeight) updates.initialWeight = data.weight;
                         
                         if (Object.keys(updates).length > 0) {
@@ -309,6 +306,7 @@ function MainApp() {
                             await setDoc(doc(db, 'users', user.uid), updated, { merge: true });
                         }}
                         onThemeChange={setTheme}
+                        onLogWeight={updateWeight}
                     />
                 )}
             </Suspense>

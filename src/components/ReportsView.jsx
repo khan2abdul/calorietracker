@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart2, Loader2, Scale, Plus, Target } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BarChart2, Loader2, Scale, Plus, Target, TrendingDown, TrendingUp, Activity } from 'lucide-react';
 import { THEMES } from '../theme';
 import { db } from '../firebase.js';
-import { collection, query, getDocs, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, where } from 'firebase/firestore';
 import { getLocalDateStr } from '../utils';
 import EnergyHistoryGraph from './EnergyHistoryGraph';
 import WeightHistoryGraph from './WeightHistoryGraph';
 
-const ReportsView = ({ theme, user, minimal = false }) => {
+const ReportsView = ({ theme, user, minimal = false, onLogWeight }) => {
     const [viewType, setViewType] = useState('energy'); // 'energy' or 'weight'
     const [energySubView, setEnergySubView] = useState('combined');
     const [range, setRange] = useState('30d'); 
@@ -31,19 +31,10 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                 start.setDate(today.getDate() - days + 1);
                 start.setHours(0,0,0,0);
 
-                // Format for Firestore (YYYY-MM-DD) local
                 const startStr = getLocalDateStr(start);
 
-                // Run queries in parallel for performance
                 const logsQ = query(collection(db, 'users', user.uid, 'daily_logs'), where('__name__', '>=', startStr));
-                
-                // Fetch from the root 'activities' collection. 
-                // We omit the date inequality (>=) query to avoid triggering a Firebase composite index requirement error
-                const sessionsQ = query(
-                    collection(db, 'activities'), 
-                    where('userId', '==', user.uid)
-                );
-                
+                const sessionsQ = query(collection(db, 'activities'), where('userId', '==', user.uid));
                 const userQ = query(collection(db, 'users'), where('__name__', '==', user.uid));
 
                 const [snapshot, sessionsSnap, userSnap] = await Promise.all([
@@ -52,21 +43,15 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                     getDocs(userQ)
                 ]);
 
-                // 1. Process Daily Logs
                 const fetchedData = {};
-                snapshot.docs.forEach(doc => {
-                    fetchedData[doc.id] = doc.data();
-                });
+                snapshot.docs.forEach(doc => { fetchedData[doc.id] = doc.data(); });
 
-                // 2. Process Activities (Workout Sessions)
                 const fetchedSessions = {};
-                const startMs = start.getTime(); // Used for manual date boundary filtering
-                
+                const startMs = start.getTime();
                 sessionsSnap.docs.forEach(doc => {
                     const data = doc.data();
                     if (data.date && typeof data.date.toDate === 'function') {
                         const actDate = data.date.toDate();
-                        // Only process activities that fall within our date range
                         if (actDate.getTime() >= startMs) {
                             const actDateStr = getLocalDateStr(actDate);
                             if (!fetchedSessions[actDateStr]) fetchedSessions[actDateStr] = 0;
@@ -75,26 +60,26 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                     }
                 });
 
-                // 3. Process User Stats
                 let currentUserStats = null;
                 if (!userSnap.empty) {
                     currentUserStats = userSnap.docs[0].data();
                     setUserStats(currentUserStats);
                 }
 
-                // 4. Assemble Data Arrays
                 const energyData = [];
                 const weightData = [];
 
-                // Always include initial weight as the starting point if it exists
+                // Only include initial weight if startDate falls within the selected range
                 if (currentUserStats?.initialWeight && currentUserStats?.startDate) {
                     const startD = new Date(currentUserStats.startDate);
-                    weightData.push({
-                        date: startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                        weight: currentUserStats.initialWeight,
-                        fullDate: currentUserStats.startDate, // Use full ISO for sub-day precision in X-axis
-                        isInitial: true
-                    });
+                    if (startD >= start && startD <= today) {
+                        weightData.push({
+                            date: startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                            weight: currentUserStats.initialWeight,
+                            fullDate: currentUserStats.startDate,
+                            isInitial: true
+                        });
+                    }
                 }
 
                 for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
@@ -112,19 +97,16 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                     energyData.push({
                         date: dateLabel,
                         fullDate: dateStr,
-                        consumed: consumed,
-                        burned: burned,
+                        consumed,
+                        burned,
                         net: consumed - burned
                     });
 
-                    // Add the weight log for the day. If it's the same day as initial, 
-                    // it will show as a second point because its fullDate (YYYY-MM-DD) 
-                    // is different from the initial's full ISO string.
                     if (weightVal) {
                         weightData.push({
                             date: dateLabel,
                             weight: weightVal,
-                            fullDate: dateStr + 'T23:59:59' // Put it at end of day for spacing
+                            fullDate: dateStr
                         });
                     }
                 }
@@ -142,25 +124,12 @@ const ReportsView = ({ theme, user, minimal = false }) => {
     }, [user, range, viewType, refreshKey]);
 
     const handleLogWeight = async () => {
-        if (!newWeight || isNaN(newWeight)) return;
+        if (!newWeight || isNaN(newWeight) || !onLogWeight) return;
         setIsLoggingWeight(true);
         try {
-            const todayStr = getLocalDateStr(new Date());
-            const weightVal = Number(newWeight);
-
-            // Log in daily history
-            await setDoc(doc(db, 'users', user.uid, 'daily_logs', todayStr), { 
-                weight: weightVal,
-                updatedAt: serverTimestamp() 
-            }, { merge: true });
-
-            // Update main user record
-            await setDoc(doc(db, 'users', user.uid), {
-                weight: weightVal
-            }, { merge: true });
-
+            await onLogWeight(Number(newWeight));
             setNewWeight('');
-            setRefreshKey(prev => prev + 1); // Trigger fetch
+            setRefreshKey(prev => prev + 1);
         } catch (e) {
             console.error(e);
         } finally {
@@ -168,6 +137,32 @@ const ReportsView = ({ theme, user, minimal = false }) => {
         }
     };
 
+    // ---- Weight Stats ----
+    const weightStats = useMemo(() => {
+        if (!userStats) return null;
+        const dailyLogs = weightLogs.filter(w => !w.isInitial);
+        if (dailyLogs.length === 0) return null;
+
+        const latest = dailyLogs[dailyLogs.length - 1].weight;
+        const initial = userStats.initialWeight || latest;
+        const target = userStats.targetWeight;
+        const heightM = (userStats.height || 0) / 100;
+
+        const totalChange = latest - initial;
+        const startD = userStats.startDate ? new Date(userStats.startDate) : new Date();
+        const weeksActive = Math.max(1, (Date.now() - startD.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeklyRate = totalChange / weeksActive;
+
+        const bmi = heightM > 0 ? (latest / (heightM * heightM)).toFixed(1) : null;
+        const remaining = target != null ? target - latest : null;
+        const progressPct = (target != null && initial !== target)
+            ? Math.min(100, Math.max(0, (totalChange / (target - initial)) * 100))
+            : null;
+
+        return { latest, initial, target, totalChange, weeklyRate, bmi, remaining, progressPct, weeksActive };
+    }, [weightLogs, userStats]);
+
+    const hasInRangeLogs = weightLogs.some(w => !w.isInitial);
     const styles = THEMES[theme];
 
     return (
@@ -188,41 +183,19 @@ const ReportsView = ({ theme, user, minimal = false }) => {
 
             {/* View Toggle */}
             <div className={`p-1.5 rounded-3xl flex border mb-6 ${styles.card} ${styles.border}`}>
-                <button
-                    onClick={() => setViewType('energy')}
-                    className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
-                        ${viewType === 'energy'
-                            ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg')
-                            : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}
-                    `}
-                >
+                <button onClick={() => setViewType('energy')} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${viewType === 'energy' ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg') : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
                     <BarChart2 size={14} /> Energy
                 </button>
-                <button
-                    onClick={() => setViewType('weight')}
-                    className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
-                        ${viewType === 'weight'
-                            ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg')
-                            : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}
-                    `}
-                >
+                <button onClick={() => setViewType('weight')} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${viewType === 'weight' ? (theme === 'dark' ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-black text-white shadow-lg') : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
                     <Scale size={14} /> Weight
                 </button>
             </div>
 
-            {/* Range Selector & Energy Sub-View (only for energy) */}
+            {/* Range Selector & Energy Sub-View */}
             <div className="flex flex-col gap-4">
                 <div className="flex gap-2 justify-center">
                     {['2w', '30d', '60d'].map(r => (
-                        <button
-                            key={r}
-                            onClick={() => setRange(r)}
-                            className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border
-                                ${range === r
-                                    ? (theme === 'dark' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 scale-105' : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20 scale-105')
-                                    : (theme === 'dark' ? 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-400 hover:text-gray-600')}
-                            `}
-                        >
+                        <button key={r} onClick={() => setRange(r)} className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${range === r ? (theme === 'dark' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 scale-105' : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20 scale-105') : (theme === 'dark' ? 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-400 hover:text-gray-600')}`}>
                             {r === '2w' ? '14 Days' : r === '30d' ? '30 Days' : '60 Days'}
                         </button>
                     ))}
@@ -232,15 +205,7 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                     <div className="flex justify-center">
                         <div className={`p-1 rounded-full flex border ${styles.card} ${styles.border}`}>
                             {['combined', 'consumed', 'burned', 'net'].map(type => (
-                                <button
-                                    key={type}
-                                    onClick={() => setEnergySubView(type)}
-                                    className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all
-                                        ${energySubView === type
-                                            ? (theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white')
-                                            : (theme === 'dark' ? 'text-gray-500' : 'text-gray-400')}
-                                    `}
-                                >
+                                <button key={type} onClick={() => setEnergySubView(type)} className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${energySubView === type ? (theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white') : (theme === 'dark' ? 'text-gray-500' : 'text-gray-400')}`}>
                                     {type}
                                 </button>
                             ))}
@@ -264,8 +229,66 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                 )
             ) : (
                 <div className="space-y-6">
-                    {/* Weight History Table/Graph */}
-                    {weightLogs.length > 0 ? (
+                    {/* Weight Stats Bento */}
+                    {weightStats && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <StatCard 
+                                label="Total Change" 
+                                value={`${weightStats.totalChange > 0 ? '+' : ''}${weightStats.totalChange.toFixed(1)} kg`}
+                                icon={weightStats.totalChange <= 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+                                color={weightStats.totalChange <= 0 ? 'text-green-500' : 'text-orange-500'}
+                                bg={theme === 'dark' ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-100'}
+                                theme={theme}
+                            />
+                            <StatCard 
+                                label="Weekly Avg" 
+                                value={`${weightStats.weeklyRate > 0 ? '+' : ''}${weightStats.weeklyRate.toFixed(2)} kg`}
+                                icon={<Activity size={14} />}
+                                color={theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}
+                                bg={theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}
+                                theme={theme}
+                            />
+                            <StatCard 
+                                label="BMI" 
+                                value={weightStats.bmi || '--'}
+                                icon={<Scale size={14} />}
+                                color={theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}
+                                bg={theme === 'dark' ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-50 border-purple-100'}
+                                theme={theme}
+                            />
+                            {weightStats.progressPct != null && (
+                                <StatCard 
+                                    label="To Goal" 
+                                    value={`${Math.round(weightStats.progressPct)}%`}
+                                    icon={<Target size={14} />}
+                                    color="text-green-500"
+                                    bg={theme === 'dark' ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-100'}
+                                    theme={theme}
+                                />
+                            )}
+                            <StatCard 
+                                label="Latest" 
+                                value={`${weightStats.latest} kg`}
+                                icon={<Scale size={14} />}
+                                color={theme === 'dark' ? 'text-white' : 'text-gray-800'}
+                                bg={theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'}
+                                theme={theme}
+                            />
+                            {weightStats.remaining != null && (
+                                <StatCard 
+                                    label="Remaining" 
+                                    value={`${Math.abs(weightStats.remaining).toFixed(1)} kg`}
+                                    icon={<Target size={14} />}
+                                    color={theme === 'dark' ? 'text-cyan-400' : 'text-cyan-600'}
+                                    bg={theme === 'dark' ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}
+                                    theme={theme}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Weight Graph */}
+                    {hasInRangeLogs ? (
                         <WeightHistoryGraph 
                             data={weightLogs} 
                             theme={theme} 
@@ -276,7 +299,7 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                     ) : (
                         <div className={`p-8 rounded-[2.5rem] border border-dashed text-center ${styles.card} ${styles.border} opacity-60`}>
                             <Scale size={40} className="mx-auto mb-4 opacity-20" />
-                            <p className="text-sm font-bold opacity-50">No weight entries yet</p>
+                            <p className="text-sm font-bold opacity-50">No weight entries for this period</p>
                             <p className="text-[10px] uppercase tracking-tighter mt-1">Log your first weigh-in below</p>
                         </div>
                     )}
@@ -307,11 +330,7 @@ const ReportsView = ({ theme, user, minimal = false }) => {
                             <button 
                                 onClick={handleLogWeight}
                                 disabled={isLoggingWeight || !newWeight}
-                                className={`px-8 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all active:scale-95 shadow-lg
-                                    ${isLoggingWeight || !newWeight 
-                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
-                                        : 'bg-blue-500 text-white shadow-blue-500/20 hover:bg-blue-400'}
-                                `}
+                                className={`px-8 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all active:scale-95 shadow-lg ${isLoggingWeight || !newWeight ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white shadow-blue-500/20 hover:bg-blue-400'}`}
                             >
                                 {isLoggingWeight ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
                             </button>
@@ -332,5 +351,15 @@ const ReportsView = ({ theme, user, minimal = false }) => {
         </div>
     );
 };
+
+const StatCard = ({ label, value, icon, color, bg, theme }) => (
+    <div className={`p-4 rounded-2xl border flex flex-col items-center gap-2 ${bg} ${theme === 'dark' ? 'border-opacity-20' : ''}`}>
+        <div className={`flex items-center gap-1.5 ${color}`}>
+            {icon}
+            <span className="text-[9px] font-black uppercase tracking-widest opacity-70">{label}</span>
+        </div>
+        <span className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{value}</span>
+    </div>
+);
 
 export default ReportsView;

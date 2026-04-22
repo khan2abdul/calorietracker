@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, Edit2, Trash2 } from 'lucide-react';
+import { X, Edit2, Trash2 } from 'lucide-react';
 import { THEMES } from '../../theme';
 
 const emojiMap = {
@@ -21,29 +21,79 @@ function getFoodEmoji(name) {
     return emojiMap.default;
 }
 
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash);
+}
+
+const ACCENTS = [
+    {
+        border: 'border-l-blue-500',
+        circleBg: 'bg-blue-500/15',
+        circleText: 'text-blue-400',
+        badgeBg: 'bg-blue-500/15',
+        pillBg: 'bg-blue-500/15 text-blue-400',
+        calBg: 'bg-blue-500/15 text-blue-400',
+    },
+    {
+        border: 'border-l-emerald-500',
+        circleBg: 'bg-emerald-500/15',
+        circleText: 'text-emerald-400',
+        badgeBg: 'bg-emerald-500/15',
+        pillBg: 'bg-emerald-500/15 text-emerald-400',
+        calBg: 'bg-emerald-500/15 text-emerald-400',
+    },
+    {
+        border: 'border-l-orange-500',
+        circleBg: 'bg-orange-500/15',
+        circleText: 'text-orange-400',
+        badgeBg: 'bg-orange-500/15',
+        pillBg: 'bg-orange-500/15 text-orange-400',
+        calBg: 'bg-orange-500/15 text-orange-400',
+    },
+];
+
+function getAccent(food) {
+    const key = food.uid || food.name || 'default';
+    const idx = hashString(key) % ACCENTS.length;
+    return ACCENTS[idx];
+}
+
 export const FoodItem = ({ food, theme, onClick }) => {
     const styles = THEMES[theme] || THEMES.dark;
     const emoji = food.emoji || getFoodEmoji(food.name);
+    const accent = getAccent(food);
 
     return (
         <div
             onClick={() => onClick(food)}
-            className={`p-3.5 px-4 flex items-center gap-3 rounded-2xl cursor-pointer transition-all active:scale-[0.98] select-none ${theme === 'dark' ? 'bg-[#0a0a0a] border border-white/5' : 'bg-gray-50 border border-gray-100'}`}
+            className={`p-3.5 flex items-center gap-3.5 rounded-2xl cursor-pointer transition-all active:scale-[0.98] select-none border-l-[3px] ${accent.border} ${theme === 'dark' ? 'bg-[#0f0f0f] border-y border-r border-white/[0.05]' : 'bg-gray-50 border-y border-r border-gray-100'}`}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(food); }}
         >
+            {/* Emoji Circle */}
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${accent.circleBg} ${accent.circleText}`}>
+                {emoji}
+            </div>
+
+            {/* Content */}
             <div className="flex-1 min-w-0">
-                <div className={`text-sm font-semibold truncate ${styles.textMain}`}>{food.name}</div>
-                {food.weight && <div className={`text-xs ${styles.textSec}`}>{food.weight}</div>}
-                <div className="flex gap-1.5 mt-1.5">
+                <div className={`text-[13px] font-bold truncate ${styles.textMain}`}>{food.name}</div>
+                {food.weight && <div className={`text-[11px] ${styles.textSec} mt-0.5`}>{food.weight}</div>}
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {food.protein > 0 && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
                             P {food.protein}g
                         </span>
                     )}
                     {food.carbs > 0 && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-green-500/15 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
                             C {food.carbs}g
                         </span>
                     )}
@@ -55,9 +105,12 @@ export const FoodItem = ({ food, theme, onClick }) => {
                 </div>
             </div>
 
-            <div className="text-right shrink-0">
-                <div className={`text-base font-bold ${styles.textMain}`}>{food.calories}</div>
-                <div className={`text-[10px] ${styles.textSec}`}>kcal</div>
+            {/* Calories */}
+            <div className="text-right shrink-0 flex flex-col items-center justify-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black ${accent.calBg}`}>
+                    {food.calories}
+                </div>
+                <span className={`text-[9px] font-bold ${styles.textSec} mt-0.5`}>kcal</span>
             </div>
         </div>
     );
@@ -84,7 +137,7 @@ export const FoodDetailModal = ({ food, theme, onClose, onEdit, onDelete }) => {
                         <p className={`text-xl font-bold ${styles.textMain}`}>{food.protein}g</p>
                     </div>
                     <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-emerald-50 border-emerald-100'}`}>
-                        <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-green-400' : 'text-emerald-500'}`}>Carbs</p>
+                        <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`}>Carbs</p>
                         <p className={`text-xl font-bold ${styles.textMain}`}>{food.carbs}g</p>
                     </div>
                     <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-orange-50 border-orange-100'}`}>
