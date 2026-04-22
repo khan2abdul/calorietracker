@@ -341,6 +341,7 @@ function MainApp() {
                 {isAddModalOpen && (
                     <AddFoodView
                         type={addType}
+                        user={user}
                         userStats={userStats}
                         onClose={() => { setIsAddModalOpen(false); setEditingFood(null); }}
                         onAdd={handleAddFood}

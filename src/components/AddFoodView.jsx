@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Sparkles, Mic, ArrowRight, Plus, Search, ScanLine, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp, Loader2 } from 'lucide-react';
+import { X, Sparkles, Mic, ArrowRight, Plus, Search, ScanLine, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp, Loader2, Heart } from 'lucide-react';
 import { THEMES } from '../theme';
+import { db } from '../firebase.js';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getLocalDateStr } from '../utils';
 
 // ==========================================
 // CONSTANTS & DATA
@@ -261,10 +264,10 @@ const VoiceRecordingIndicator = ({ isListening, isProcessing, theme }) => {
     return null;
 };
 
-// Confidence indicator component
+// Confidence indicator component — only show warnings for genuinely low confidence
 const ConfidenceIndicator = ({ score, theme }) => {
-    if (score >= 0.8) {
-        return <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium"><Check size={12} /> High confidence</span>;
+    if (score >= 0.75) {
+        return null; // High confidence — no badge needed
     } else if (score >= 0.5) {
         return <span className="flex items-center gap-1 text-xs text-amber-500 font-medium"><AlertCircle size={12} /> Approximate</span>;
     } else {
@@ -346,7 +349,7 @@ import { getTimeBasedMeal } from '../config';
 // MAIN COMPONENT
 // ==========================================
 
-const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm, editingFood, recentFoods = [], foodPatterns = {} }) => {
+const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initialTerm, editingFood, recentFoods = [], foodPatterns = {} }) => {
     // Change #3: Auto-select meal tab based on time
     const autoMeal = useMemo(() => getTimeBasedMeal(), []);
     const [activeMeal, setActiveMeal] = useState(meal || autoMeal);
@@ -376,6 +379,10 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
     const [showScanPulse, setShowScanPulse] = useState(false);
     // Category browse state
     const [selectedCategory, setSelectedCategory] = useState(null);
+
+    // Frequent foods from last 30 days
+    const [frequentFoods, setFrequentFoods] = useState([]);
+    const [loadingFrequent, setLoadingFrequent] = useState(true);
 
     // Initialize with editing food data
     useEffect(() => {
@@ -457,6 +464,60 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
         return () => document.removeEventListener('mousedown', handler);
     }, [showSuggestions]);
 
+    // Fetch most eaten foods from last 30 days
+    useEffect(() => {
+        if (!user) { setLoadingFrequent(false); return; }
+        const fetchFrequent = async () => {
+            try {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - 30);
+                const startStr = getLocalDateStr(cutoff);
+                const q = query(
+                    collection(db, 'users', user.uid, 'daily_logs'),
+                    where('__name__', '>=', startStr)
+                );
+                const snap = await getDocs(q);
+                const counts = new Map(); // name -> { count, item }
+                snap.docs.forEach(doc => {
+                    const data = doc.data();
+                    const logs = data.foodLogs || {};
+                    Object.values(logs).flat().forEach(food => {
+                        if (!food || !food.name) return;
+                        const key = food.name.toLowerCase().trim();
+                        const existing = counts.get(key);
+                        if (existing) {
+                            existing.count += 1;
+                        } else {
+                            counts.set(key, {
+                                count: 1,
+                                item: {
+                                    name: food.name,
+                                    portion: food.weight || food.portion || '1 serving',
+                                    calories: food.calories || 0,
+                                    protein: food.protein || 0,
+                                    carbs: food.carbs || 0,
+                                    fat: food.fat || 0,
+                                    icon: '🍽️'
+                                }
+                            });
+                        }
+                    });
+                });
+                // Sort by frequency, take top 8
+                const sorted = Array.from(counts.values())
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 8)
+                    .map(entry => entry.item);
+                setFrequentFoods(sorted);
+            } catch (e) {
+                console.error('Error fetching frequent foods:', e);
+            } finally {
+                setLoadingFrequent(false);
+            }
+        };
+        fetchFrequent();
+    }, [user]);
+
     // Auto-capitalize first letter
     const handleQueryChange = (e) => {
         let value = e.target.value;
@@ -489,9 +550,9 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
 
         let prompt = "";
         if (type === 'exercise') {
-            prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.85}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.7}].`;
+            prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.9}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.85}].`;
         } else {
-            prompt = `Analyze this meal description: "${query}". Identify food items, estimate calories, protein (g), carbs (g), fat (g), and approximate weight. Provide 2-3 portion size variations when appropriate (small, medium, large or specific weights). Also suggest 2-3 alternative foods the user might have meant. Return ONLY a valid JSON object with this structure: {"suggestions": [{"name": "Food Name", "weight": "200g", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "confidence": 0.85}], "alternatives": ["Alternative 1", "Alternative 2"]}.`;
+            prompt = `Analyze this meal description: "${query}". You are a nutrition expert specializing in Indian and international cuisine. Estimate calories, protein (g), carbs (g), fat (g), and approximate weight with high accuracy. Use standard USDA and Indian food composition tables. Be precise with portion sizes. For common items like roti, rice, dal, chai, eggs, etc., use well-established values. Provide 2-3 portion size variations. Return ONLY a valid JSON object: {"suggestions": [{"name": "Food Name", "weight": "200g", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "confidence": 0.92}], "alternatives": ["Alt 1", "Alt 2"]}. Set confidence to 0.85+ for common foods and 0.7+ for complex mixed meals. Never below 0.6.`;
         }
 
         try {
@@ -1166,6 +1227,46 @@ const AddFoodView = ({ meal, type, userStats, onClose, onAdd, theme, initialTerm
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Your Favorites — Most eaten in last 30 days */}
+                    {type !== 'exercise' && frequentFoods.length > 0 && (
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className={`text-xs font-bold uppercase tracking-widest ${styles.textSec} flex items-center gap-2`}>
+                                    <Heart size={12} /> Your Favorites
+                                </h3>
+                                <span className={`text-[10px] font-medium ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>Last 30 days</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {frequentFoods.map((item, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleQuickAdd(item)}
+                                        className={`p-3 rounded-xl text-left border transition-all hover:scale-[1.02] active:scale-95 relative group ${cardBg} ${styles.border} ${
+                                            theme === 'dark' ? 'hover:border-white/20' : 'hover:border-gray-300'
+                                        }`}
+                                        title={`~${item.calories} kcal`}
+                                    >
+                                        <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition-all opacity-60 group-hover:opacity-100 ${
+                                            theme === 'dark' ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            <Plus size={12} />
+                                        </div>
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="text-2xl flex-shrink-0">{item.icon || '🍽️'}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`font-bold text-sm truncate ${styles.textMain}`}>{item.name}</p>
+                                                <p className={`text-xs truncate ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                            </div>
+                                        </div>
+                                        <p className={`text-xs font-semibold mt-1.5 ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
+                                            ~{item.calories} kcal
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
