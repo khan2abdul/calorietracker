@@ -348,6 +348,7 @@ function MainApp() {
                         theme={theme}
                         editingFood={editingFood}
                         meal={activeAddMeal}
+                        recentFoods={Object.values(logs).flat()}
                     />
                 )}
             </Suspense>

@@ -3,7 +3,7 @@ import { db, auth } from '../../firebase';
 import { doc, getDoc, collection, addDoc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { X, Loader2 } from 'lucide-react';
 
-const ManualLogSheet = ({ isOpen, onClose, editActivity = null, currentDate = null }) => {
+const ManualLogSheet = ({ isOpen, onClose, editActivity = null, currentDate = null, defaultActivity = null }) => {
     const [userWeight, setUserWeight] = useState(70);
     const [selectedActivity, setSelectedActivity] = useState('walking');
     const [duration, setDuration] = useState('');
@@ -16,7 +16,7 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null, currentDate = nu
     
     const [toast, setToast] = useState(null);
 
-    // Populate fields when editing
+    // Populate fields when editing or when defaultActivity changes
     useEffect(() => {
         if (editActivity) {
             setSelectedActivity(editActivity.activityType || 'walking');
@@ -24,13 +24,15 @@ const ManualLogSheet = ({ isOpen, onClose, editActivity = null, currentDate = nu
             setDistance(editActivity.distance ? editActivity.distance.toString() : '');
             setNotes(editActivity.notes || '');
         } else {
-            // Reset for new entry
-            setSelectedActivity('walking');
+            // Reset for new entry — respect defaultActivity from quick log
+            const actId = defaultActivity ? defaultActivity.toLowerCase() : 'walking';
+            const validActivities = ['walking','running','cycling','hiit','cardio','exercise','gym','skipping','other'];
+            setSelectedActivity(validActivities.includes(actId) ? actId : 'walking');
             setDuration('');
             setDistance('');
             setNotes('');
         }
-    }, [editActivity, isOpen]);
+    }, [editActivity, isOpen, defaultActivity]);
 
     useEffect(() => {
         const fetchWeight = async () => {

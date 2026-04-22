@@ -1,126 +1,373 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import ManualLogSheet from '../components/workout/ManualLogSheet';
 import ConfirmModal from '../components/ConfirmModal';
 import { useWorkoutHistory, activityEmoji, formatSessionDate } from '../hooks/useWorkoutHistory';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, Bell, Moon, X } from 'lucide-react';
 import { THEMES } from '../theme';
+
+const QUICK_ACTIVITIES = [
+    { name: 'Walk', emoji: '🚶' },
+    { name: 'Run', emoji: '🏃' },
+    { name: 'Cycle', emoji: '🚴' },
+    { name: 'Yoga', emoji: '🧘' },
+    { name: 'Swim', emoji: '🏊' },
+    { name: 'Custom', emoji: '⚙️' },
+];
+
+const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
     const styles = THEMES[theme] || THEMES.dark;
+    const isDark = theme === 'dark';
     const [showManualSheet, setShowManualSheet] = useState(false);
     const [editingSession, setEditingSession] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, sessionId: null });
-    
+    const [quickLogActivity, setQuickLogActivity] = useState(null);
+
     const {
         sessions, loading, loadingMore, hasMore,
         loadMore, deleteSession, weeklyStats, weeklyLoading
     } = useWorkoutHistory();
 
-    const today = new Date();
-    const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
-    const formattedDate = today.toLocaleDateString('en-US', dateOptions);
+    // Compute week number
+    const weekNumber = useMemo(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 1);
+        const diff = now - start + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+        return Math.ceil(diff / (86400000 * 7));
+    }, []);
+
+    // Compute personal records from sessions
+    const records = useMemo(() => {
+        if (!sessions.length) return [];
+        let longest = null, longestDist = null, mostBurned = null, streak = 0;
+        sessions.forEach(s => {
+            const dur = s.type === 'gps' ? Math.ceil(s.duration / 60) : s.duration;
+            if (!longest || dur > longest.value) longest = { value: dur, label: 'Longest', unit: 'min', date: formatSessionDate(s.date), type: s.activityType };
+            if (s.distance && (!longestDist || s.distance > longestDist.value)) longestDist = { value: s.distance, label: 'Distance', unit: 'km', date: formatSessionDate(s.date), type: s.activityType };
+            if (!mostBurned || s.caloriesBurned > mostBurned.value) mostBurned = { value: s.caloriesBurned, label: 'Most Burned', unit: 'kcal', date: formatSessionDate(s.date), type: s.activityType };
+        });
+        const recs = [];
+        if (longest) recs.push({ ...longest, icon: '⏱️' });
+        if (longestDist) recs.push({ ...longestDist, icon: '📏' });
+        if (mostBurned) recs.push({ ...mostBurned, icon: '🔥' });
+        recs.push({ value: Math.min(sessions.length, 7), label: 'Streak', unit: 'days', date: 'Current', icon: '⚡' });
+        return recs;
+    }, [sessions]);
+
+    // Activity color mapping for left borders
+    const activityColor = (type) => {
+        const map = {
+            walk: '#34d399', walking: '#34d399',
+            run: '#f472b6', running: '#f472b6',
+            cycle: '#22d3ee', cycling: '#22d3ee',
+            gym: '#a78bfa', hiit: '#fb923c', cardio: '#f87171',
+            yoga: '#818cf8', swim: '#60a5fa', swimming: '#60a5fa',
+        };
+        return map[type?.toLowerCase()] || '#34d399';
+    };
+
+    const handleQuickLog = (activity) => {
+        setQuickLogActivity(activity);
+        setEditingSession(null);
+        setShowManualSheet(true);
+    };
+
+    const glassCard = isDark
+        ? 'backdrop-blur-xl bg-[#1C1C1E]/80 border border-white/10'
+        : 'backdrop-blur-xl bg-white/90 border border-slate-100';
 
     return (
-        <div className={`min-h-screen pb-20 overflow-y-auto ${styles.bg}`}>
-            {/* ── SECTION 1: HEADER ── */}
-            <div className="px-5 pt-6 pb-2 flex justify-between items-start">
-                <div>
-                    <h1 className={`text-2xl font-bold ${styles.textMain}`}>Workout 🏃</h1>
-                    <p className={`text-sm ${styles.textSec} mt-1`}>{formattedDate}</p>
+        <div className={`min-h-screen pb-28 overflow-y-auto ${styles.bg}`}>
+            {/* ══ TOP NAV ══ */}
+            <div className={`sticky top-0 z-50 px-5 py-3 flex items-center justify-between ${isDark ? 'bg-black/80 backdrop-blur-xl border-b border-white/5' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
+                <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center font-bold text-sm shadow-lg text-white">K</div>
+                    <span className={`text-sm font-semibold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Kadir</span>
                 </div>
-            </div>
-
-            {/* ── SECTION 2: WEEKLY SUMMARY STRIP ── */}
-            <div className={`mx-4 mb-4 rounded-2xl p-4 border ${styles.card} ${styles.border}`}>
-                <div className={`grid grid-cols-3 divide-x ${styles.border}`}>
-                    <div className="flex flex-col items-center py-1">
-                        {weeklyLoading ? <div className="h-6 w-12 bg-gray-500/20 rounded animate-pulse mx-auto" /> : <span className="text-xl font-bold text-[#ff5733]">{weeklyStats.sessions}</span>}
-                        <span className={`text-[10px] font-bold uppercase tracking-wide ${styles.textSec}`}>SESSIONS</span>
-                    </div>
-                    <div className="flex flex-col items-center py-1 overflow-hidden">
-                        {weeklyLoading ? <div className="h-6 w-12 bg-gray-500/20 rounded animate-pulse mx-auto" /> : <span className="text-xl font-bold text-[#ff5733] whitespace-nowrap">{weeklyStats.km} km</span>}
-                        <span className={`text-[10px] font-bold uppercase tracking-wide ${styles.textSec}`}>THIS WEEK</span>
-                    </div>
-                    <div className="flex flex-col items-center py-1 overflow-hidden">
-                        {weeklyLoading ? <div className="h-6 w-12 bg-gray-500/20 rounded animate-pulse mx-auto" /> : <span className="text-xl font-bold text-[#ff5733] whitespace-nowrap">{weeklyStats.kcal}</span>}
-                        <span className={`text-[10px] font-bold uppercase tracking-wide ${styles.textSec}`}>BURNED</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── SECTION 3: SINGLE CTA CARD ── */}
-            <div className="mx-4 mb-5">
-                <div className={`rounded-3xl p-6 min-h-[140px] flex flex-row items-center gap-6 border transition-all active:scale-[0.98] ${theme === 'dark' ? 'bg-[#0d1e3a] border-[#2a4a8a]' : 'bg-blue-50 border-blue-200 shadow-sm'}`}>
-                    <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-4xl shrink-0">✏️</div>
-                    <div className="flex-1">
-                        <div className={`${theme === 'dark' ? 'text-[#60a5fa]' : 'text-blue-700'} font-black text-lg mb-1`}>Log Activity</div>
-                        <div className={`text-xs leading-4 ${theme === 'dark' ? 'text-gray-400' : 'text-blue-600/70'}`}>Add manual workouts to your daily burn</div>
-                    </div>
-                    <button 
-                        className={`font-black text-sm rounded-2xl px-6 py-3 transition-all ${theme === 'dark' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'bg-blue-500 text-white'}`}
-                        onClick={() => { setEditingSession(null); setShowManualSheet(true); }}
-                    >
-                        + Log Now
+                <span className={`font-extrabold text-base tracking-tight ${styles.textMain}`}>CalTrack</span>
+                <div className="flex gap-3.5">
+                    <button className={`${isDark ? 'text-white/35' : 'text-gray-400'} hover:opacity-80 transition`}>
+                        <Bell size={20} />
+                    </button>
+                    <button className={`${isDark ? 'text-white/35' : 'text-gray-400'} hover:opacity-80 transition`}>
+                        <Moon size={20} />
                     </button>
                 </div>
             </div>
 
-            <div className={`text-base font-bold px-4 pb-3 ${styles.textMain}`}>Recent Sessions</div>
-            
-            {loading ? (
-                <div className="px-4 space-y-3">
-                    {[1, 2, 3].map(i => <div key={i} className={`h-24 rounded-2xl animate-pulse ${styles.card} opacity-60`} />)}
-                </div>
-            ) : sessions.length === 0 ? (
-                <div className={`mx-4 rounded-2xl p-8 flex flex-col items-center justify-center border border-dashed ${styles.border}`}>
-                    <div className="text-5xl mb-3">🏃</div>
-                    <div className={`font-semibold text-base mb-1 ${styles.textMain}`}>No workouts yet</div>
-                    <p className={`text-sm text-center ${styles.textSec}`}>Start moving! Your sessions will appear here.</p>
-                </div>
-            ) : (
-                <div className="px-4 space-y-3">
-                    {sessions.map(session => {
-                        const finalDuration = session.type === 'gps' ? Math.ceil(session.duration / 60) : session.duration;
-                        const distStr = session.distance > 0 ? `${session.distance} km • ` : '';
-                        return (
-                            <div 
-                                key={session.id}
-                                className={`rounded-2xl p-4 flex items-center gap-4 border transition-all active:scale-[0.98] ${styles.card} ${styles.border}`}
-                                onClick={() => { if (session.type === 'gps') onSessionClick(session.id); }}
-                            >
-                                <div className="text-3xl w-10 text-center flex-shrink-0">{activityEmoji[session.activityType] || '⚡'}</div>
-                                <div className="flex-1">
-                                    <div className={`font-bold text-sm capitalize ${styles.textMain}`}>{session.activityType}</div>
-                                    <div className={`text-xs mt-1 ${styles.textSec}`}>{formatSessionDate(session.date)} • {distStr}{finalDuration} min</div>
-                                    <div className="mt-2">
-                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${session.type === 'gps' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
-                                            {session.type === 'gps' ? '📍 GPS' : '✏️ Manual'}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-3">
-                                    <div className="text-[#ff5733] font-black text-sm">{session.caloriesBurned} kcal</div>
-                                    <div className="flex gap-2">
-                                        {session.type === 'manual' && (
-                                            <button onClick={(e) => { e.stopPropagation(); setEditingSession(session); setShowManualSheet(true); }} className={`${styles.textSec} hover:text-blue-500`}><Edit2 size={14} /></button>
-                                        )}
-                                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ isOpen: true, sessionId: session.id }); }} className={`${styles.textSec} hover:text-red-500`}><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
+            <div className="max-w-md mx-auto px-4 pt-6 space-y-6 relative z-10">
+
+                {/* ══ HERO HEADER ══ */}
+                <div>
+                    <div
+                        className="rounded-3xl p-5 relative overflow-hidden"
+                        style={{
+                            background: isDark
+                                ? 'linear-gradient(135deg, rgba(52,211,153,0.12) 0%, rgba(249,115,22,0.08) 60%, rgba(8,8,8,0) 100%)'
+                                : 'linear-gradient(135deg, rgba(52,211,153,0.08) 0%, rgba(249,115,22,0.05) 60%, rgba(255,255,255,0) 100%)',
+                            border: isDark ? '1px solid rgba(52,211,153,0.15)' : '1px solid rgba(52,211,153,0.2)'
+                        }}
+                    >
+                        <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10 pointer-events-none"
+                            style={{ background: 'radial-gradient(circle, #34d399, transparent)', transform: 'translate(30%, -30%)' }} />
+                        <div className="flex items-start justify-between relative z-10">
+                            <div>
+                                <p className={`text-xs font-medium uppercase tracking-widest mb-1 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>Week {weekNumber}</p>
+                                <h1 className={`text-4xl font-black leading-none ${styles.textMain}`}>Workout</h1>
+                                <p className={`text-sm mt-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>
+                                    {weeklyStats.sessions} of <span className="text-emerald-400 font-bold">5 sessions</span> this week
+                                </p>
                             </div>
-                        );
-                    })}
+                            <div className="text-right">
+                                <div className="text-3xl font-black text-orange-400">{weeklyStats.kcal || 0}</div>
+                                <div className={`text-xs font-semibold ${isDark ? 'text-orange-400/60' : 'text-orange-500/70'}`}>kcal burned</div>
+                                <div className={`text-xs mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>this week</div>
+                            </div>
+                        </div>
+                        {/* Weekly goal progress bar */}
+                        <div className="mt-4">
+                            <div className={`flex justify-between text-xs mb-1.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                <span>Weekly goal</span>
+                                <span className="text-emerald-400 font-semibold">{weeklyStats.sessions} / 5 sessions</span>
+                            </div>
+                            <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/6' : 'bg-gray-200'}`}>
+                                <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                        width: `${Math.min((weeklyStats.sessions / 5) * 100, 100)}%`,
+                                        background: 'linear-gradient(90deg, #34d399, #22d3ee)',
+                                        boxShadow: '0 0 8px rgba(52,211,153,0.5)'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            )}
 
-            {hasMore && (
-                <button onClick={loadMore} disabled={loadingMore} className={`mx-4 mt-4 w-[calc(100%-32px)] py-3 rounded-2xl text-sm font-bold border transition-colors ${styles.card} ${styles.border} ${styles.textSec}`}>
-                    {loadingMore ? 'Loading...' : 'Load More Sessions'}
-                </button>
-            )}
+                {/* ══ STATS ROW ══ */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div className={`rounded-2xl p-3.5 text-center ${glassCard}`}>
+                        <div className="text-xl mb-1">🏋️</div>
+                        <div className={`text-2xl font-extrabold ${styles.textMain}`}>{weeklyLoading ? '-' : weeklyStats.sessions}</div>
+                        <div className={`text-xs mt-0.5 ${isDark ? 'text-white/35' : 'text-gray-400'}`}>Sessions</div>
+                        <div className="text-xs text-emerald-400 mt-1 font-semibold">↑ Active</div>
+                    </div>
+                    <div className={`rounded-2xl p-3.5 text-center ${glassCard}`}>
+                        <div className="text-xl mb-1">📏</div>
+                        <div className="text-2xl font-extrabold text-cyan-400">{weeklyLoading ? '-' : weeklyStats.km}</div>
+                        <div className={`text-xs mt-0.5 ${isDark ? 'text-white/35' : 'text-gray-400'}`}>km total</div>
+                        <div className="text-xs text-emerald-400 mt-1 font-semibold">↑ Track</div>
+                    </div>
+                    <div className={`rounded-2xl p-3.5 text-center ${glassCard}`}>
+                        <div className="text-xl mb-1">⏱️</div>
+                        <div className="text-2xl font-extrabold text-purple-400">
+                            {weeklyLoading ? '-' : (sessions[0]?.type === 'gps' ? Math.ceil(sessions[0]?.duration / 60) : sessions[0]?.duration) || 0}
+                        </div>
+                        <div className={`text-xs mt-0.5 ${isDark ? 'text-white/35' : 'text-gray-400'}`}>last min</div>
+                        <div className="text-xs text-emerald-400 mt-1 font-semibold">↑ Burn</div>
+                    </div>
+                </div>
 
-            <ManualLogSheet isOpen={showManualSheet} onClose={() => setShowManualSheet(false)} editActivity={editingSession} theme={theme} />
-            <ConfirmModal 
+                {/* ══ WEEKLY VIEW ══ */}
+                <div className={`rounded-3xl p-5 ${glassCard}`}>
+                    <div className="flex items-center justify-between mb-5">
+                        <div>
+                            <p className={`font-bold text-sm ${styles.textMain}`}>This Week</p>
+                            <p className={`text-xs mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – today
+                            </p>
+                        </div>
+                        <span className="text-xs px-3 py-1.5 rounded-full font-semibold text-emerald-400"
+                            style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                            {weeklyStats.sessions} active day{weeklyStats.sessions !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+
+                    {/* Day bars */}
+                    <div className="flex gap-2 items-end mb-2" style={{ height: '88px' }}>
+                        {WEEK_DAYS.map((day, idx) => {
+                            const sessionForDay = sessions[idx];
+                            const hasActivity = !!sessionForDay;
+                            const barHeight = hasActivity ? Math.max(20, Math.min(100, (sessionForDay.caloriesBurned / 600) * 100)) : 0;
+                            return (
+                                <div key={idx} className="flex-1 flex flex-col items-center justify-end gap-1">
+                                    <span className="text-sm">{hasActivity ? (activityEmoji[sessionForDay.activityType] || '⚡') : <span className="opacity-0">·</span>}</span>
+                                    <div className={`w-full rounded-full overflow-hidden ${isDark ? 'bg-white/6' : 'bg-gray-100'}`} style={{ height: '56px', position: 'relative' }}>
+                                        {hasActivity && (
+                                            <div
+                                                className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-500"
+                                                style={{
+                                                    height: `${barHeight}%`,
+                                                    background: 'linear-gradient(180deg, #34d399, #22d3ee)',
+                                                    boxShadow: '0 0 8px rgba(52,211,153,0.3)'
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                    <span className={`text-xs font-medium ${idx === 6 ? 'text-emerald-400 font-bold' : (isDark ? 'text-white/30' : 'text-gray-400')}`}>{day}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ══ QUICK LOG ══ */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <p className={`font-bold ${styles.textMain}`}>Quick Log</p>
+                        <button
+                            onClick={() => { setEditingSession(null); setQuickLogActivity(null); setShowManualSheet(true); }}
+                            className="text-xs text-emerald-400 font-semibold hover:opacity-80"
+                        >
+                            All activities →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        {QUICK_ACTIVITIES.map((act) => (
+                            <button
+                                key={act.name}
+                                onClick={() => handleQuickLog(act)}
+                                className={`rounded-2xl py-4 flex flex-col items-center gap-2 transition-all active:scale-95 hover:opacity-90 ${glassCard}`}
+                            >
+                                <span className="text-[28px]">{act.emoji}</span>
+                                <span className={`text-xs font-semibold ${isDark ? 'text-white/60' : 'text-gray-600'}`}>{act.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ══ PERSONAL RECORDS ══ */}
+                {records.length > 0 && (
+                    <div>
+                        <p className={`font-bold mb-3 ${styles.textMain}`}>Personal Records 🏆</p>
+                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                            {records.map((rec, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`snap-start rounded-2xl p-4 flex-shrink-0 ${glassCard}`}
+                                    style={{ minWidth: '140px', borderTop: '2px solid rgba(251,191,36,0.5)' }}
+                                >
+                                    <div className="text-[22px] mb-2">{rec.icon}</div>
+                                    <p className={`text-xs uppercase tracking-wide ${isDark ? 'text-white/35' : 'text-gray-400'}`}>{rec.label}</p>
+                                    <p className="text-2xl font-extrabold text-amber-400">
+                                        {rec.value}<span className="text-sm font-medium text-amber-400/60 ml-1">{rec.unit}</span>
+                                    </p>
+                                    <p className={`text-xs mt-1 ${isDark ? 'text-white/25' : 'text-gray-300'}`}>{rec.date}{rec.type ? ` · ${rec.type}` : ''}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ══ RECENT SESSIONS ══ */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <p className={`font-bold ${styles.textMain}`}>Recent Sessions</p>
+                        {hasMore && (
+                            <button
+                                onClick={loadMore}
+                                disabled={loadingMore}
+                                className="text-xs text-emerald-400 font-semibold hover:opacity-80"
+                            >
+                                {loadingMore ? 'Loading...' : 'View all →'}
+                            </button>
+                        )}
+                    </div>
+
+                    {loading ? (
+                        <div className="space-y-3">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className={`h-28 rounded-2xl animate-pulse ${styles.card} opacity-60`} />
+                            ))}
+                        </div>
+                    ) : sessions.length === 0 ? (
+                        <div className={`rounded-2xl p-8 flex flex-col items-center justify-center border border-dashed ${styles.border}`}>
+                            <div className="text-5xl mb-3">🏃</div>
+                            <div className={`font-semibold text-base mb-1 ${styles.textMain}`}>No workouts yet</div>
+                            <p className={`text-sm text-center ${styles.textSec}`}>Start moving! Your sessions will appear here.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {sessions.map(session => {
+                                const finalDuration = session.type === 'gps' ? Math.ceil(session.duration / 60) : session.duration;
+                                const distStr = session.distance > 0 ? `${session.distance} km · ` : '';
+                                const color = activityColor(session.activityType);
+                                return (
+                                    <div
+                                        key={session.id}
+                                        className={`rounded-2xl p-4 transition-all active:scale-[0.98] ${glassCard}`}
+                                        style={{ borderLeft: `3px solid ${color}` }}
+                                        onClick={() => { if (session.type === 'gps') onSessionClick(session.id); }}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <div
+                                                    className="w-12 h-12 rounded-[14px] flex items-center justify-center text-[22px] flex-shrink-0"
+                                                    style={{ background: `${color}1f` }}
+                                                >
+                                                    {activityEmoji[session.activityType] || '⚡'}
+                                                </div>
+                                                <div>
+                                                    <p className={`font-bold text-[15px] capitalize ${styles.textMain}`}>{session.activityType}</p>
+                                                    <p className={`text-xs mt-0.5 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                                                        {formatSessionDate(session.date)} · {distStr}{finalDuration} min
+                                                    </p>
+                                                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-full ${isDark ? 'bg-white/6 text-white/40' : 'bg-gray-100 text-gray-500'}`}>
+                                                            {session.type === 'gps' ? '📍 GPS' : '✏️ Manual'}
+                                                        </span>
+                                                        <span
+                                                            className="text-[11px] px-2.5 py-0.5 rounded-full font-medium"
+                                                            style={{ background: `${color}1a`, color: color }}
+                                                        >
+                                                            {activityEmoji[session.activityType]} {session.activityType}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                                <span
+                                                    className="px-2.5 py-1 rounded-xl font-bold text-[13px]"
+                                                    style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c' }}
+                                                >
+                                                    {session.caloriesBurned} kcal
+                                                </span>
+                                                <div className="flex gap-2.5">
+                                                    {session.type === 'manual' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingSession(session); setQuickLogActivity(null); setShowManualSheet(true); }}
+                                                            className={`${isDark ? 'text-white/20 hover:text-white/60' : 'text-gray-300 hover:text-gray-500'} transition text-sm`}
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ isOpen: true, sessionId: session.id }); }}
+                                                        className={`${isDark ? 'text-white/20 hover:text-red-400' : 'text-gray-300 hover:text-red-400'} transition text-sm`}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+            </div>
+
+            <ManualLogSheet
+                isOpen={showManualSheet}
+                onClose={() => setShowManualSheet(false)}
+                editActivity={editingSession}
+                theme={theme}
+                defaultActivity={quickLogActivity?.name}
+            />
+            <ConfirmModal
                 isOpen={deleteConfirm.isOpen}
                 title="Delete Session?"
                 message="This activity will be removed forever."

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase.js';
 import { collection, query, onSnapshot, where, doc } from 'firebase/firestore';
-import { Bell, Moon, Sun, TreeDeciduous } from 'lucide-react';
+import { Bell, Moon, Sun, TreeDeciduous, Plus } from 'lucide-react';
 import { getLocalDateStr } from '../utils';
 import { THEMES } from '../theme';
 import OverviewTab from './Diary/OverviewTab';
@@ -17,6 +17,7 @@ const DiaryView = ({ theme, user, toggleTheme, onDayClick }) => {
     const [yearData, setYearData] = useState([]);
 
     const styles = THEMES[theme] || THEMES.dark;
+    const isDark = theme === 'dark';
 
     const tc = useMemo(() => {
         if (theme === 'dark') {
@@ -158,6 +159,9 @@ const DiaryView = ({ theme, user, toggleTheme, onDayClick }) => {
     }, [history]);
 
     const tabs = ['Overview', 'Journal', 'Insights'];
+    const glassCard = isDark
+        ? 'backdrop-blur-xl bg-white/[0.03] border border-white/[0.06]'
+        : 'bg-white border border-black/[0.08]';
 
     if (loading) {
         return (
@@ -169,68 +173,67 @@ const DiaryView = ({ theme, user, toggleTheme, onDayClick }) => {
     }
 
     return (
-        <div className="flex flex-col pb-32 animate-fade-in relative" style={{ backgroundColor: tc.bg, maxWidth: '430px', margin: '0 auto', minHeight: '100vh' }}>
+        <div className="flex flex-col pb-32 animate-fade-in relative" style={{ backgroundColor: tc.bg, maxWidth: '448px', margin: '0 auto', minHeight: '100vh' }}>
             {/* Noise texture overlay */}
             <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.02]" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'repeat',
                 backgroundSize: '128px 128px',
-                maxWidth: '430px',
+                maxWidth: '448px',
                 margin: '0 auto',
                 left: '0',
                 right: '0'
             }} />
 
-            {/* Top Nav Bar */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl border-b px-5 py-3.5 flex items-center justify-between" style={{ backgroundColor: tc.headerBg, borderColor: tc.glassBorder }}>
-                <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-xs font-black text-black">
+            {/* ══ TOP NAV ══ */}
+            <header className="sticky top-0 z-50 backdrop-blur-xl border-b px-5 py-3 flex items-center justify-between" style={{ backgroundColor: tc.headerBg, borderColor: tc.glassBorder }}>
+                <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-sm font-extrabold text-black shadow-lg">
                         {userName.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-sm font-semibold" style={{ color: tc.textSec }}>{userName}</span>
                 </div>
-                <span className="text-[15px] font-black tracking-tight grad-text">CalTrack</span>
-                <div className="flex items-center gap-3">
-                    <button className="relative">
-                        <Bell size={20} className="transition-colors" style={{ color: tc.textFaint }} />
+                <span className="text-base font-extrabold tracking-tight" style={{ color: tc.textMain }}>CalTrack</span>
+                <div className="flex items-center gap-3.5">
+                    <button className="relative transition-colors hover:opacity-80" style={{ color: tc.textFaint }}>
+                        <Bell size={20} />
                         <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2" style={{ borderColor: tc.bg }} />
                     </button>
-                    <button onClick={toggleTheme} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-80" style={{ backgroundColor: tc.pillBg, border: `1px solid ${tc.glassBorder}` }}>
-                        {theme === 'light' ? <Sun size={15} style={{ color: tc.textMain, opacity: 0.6 }} /> : (theme === 'dark' ? <Moon size={15} style={{ color: tc.textMain, opacity: 0.6 }} /> : <TreeDeciduous size={15} style={{ color: tc.textMain, opacity: 0.6 }} />)}
+                    <button onClick={toggleTheme} className="transition-colors hover:opacity-80" style={{ color: tc.textFaint }}>
+                        {theme === 'light' ? <Sun size={20} /> : (theme === 'dark' ? <Moon size={20} /> : <TreeDeciduous size={20} />)}
                     </button>
                 </div>
             </header>
 
-            <div className="px-5 pt-5 pb-2 relative z-10 space-y-5">
-                {/* Page Header */}
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-[28px] font-black leading-tight" style={{ color: tc.textMain }}>Diary</h1>
-                        <p className="text-sm mt-0.5" style={{ color: tc.textMuted }}>Your Journey</p>
+            <div className="px-4 pt-5 pb-2 relative z-10 space-y-5">
+                {/* ══ HEADER ══ */}
+                <div>
+                    <p className="text-[11px] font-bold tracking-[0.12em] uppercase mb-1.5" style={{ color: tc.textMuted }}>Your Food Diary</p>
+                    <div className="flex items-end justify-between">
+                        <h1 className="text-[34px] font-black leading-none" style={{ color: tc.textMain }}>Diary 📒</h1>
+                        <button
+                            onClick={() => { /* Navigate to add food */ }}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all"
+                            style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399' }}
+                        >
+                            <Plus size={14} strokeWidth={3} /> Add food
+                        </button>
                     </div>
-                    {stats.streak > 0 && (
-                        <div className="streak-wrap">
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold" style={{ backgroundColor: 'rgba(224,123,57,0.12)', border: '1px solid rgba(224,123,57,0.25)', color: '#E07B39' }}>
-                                <span>🔥</span> {stats.streak} Days
-                            </div>
-                            <div className="streak-tooltip">{stats.streak}-day logging streak! Keep it up 💪</div>
-                        </div>
-                    )}
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="flex gap-0 border-b" style={{ borderColor: tc.glassBorder }}>
+                {/* ══ TAB SWITCHER ══ */}
+                <div className={`rounded-2xl p-1 flex gap-0.5 ${glassCard}`}>
                     {tabs.map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className="px-4 py-2 text-sm font-semibold transition-colors relative"
-                            style={{ color: activeTab === tab ? tc.textMain : tc.textMuted }}
+                            className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+                            style={{
+                                backgroundColor: activeTab === tab ? (isDark ? 'rgba(255,255,255,0.08)' : '#000') : 'transparent',
+                                color: activeTab === tab ? (isDark ? '#fff' : '#fff') : tc.textMuted,
+                            }}
                         >
                             {tab}
-                            {activeTab === tab && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-400 rounded-full" />
-                            )}
                         </button>
                     ))}
                 </div>

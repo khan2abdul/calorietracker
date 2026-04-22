@@ -26,14 +26,16 @@ export function useFoodLogs(user, currentDate) {
         lastUpdateRef.current = 0;
         
         const unsub = onSnapshot(logDoc, (snap) => {
-            console.log("Firestore Snapshot received for:", dateStr, "Exists:", snap.exists());
+            console.log("[useFoodLogs] Firestore Snapshot received for:", dateStr, "Exists:", snap.exists());
             if (snap.exists()) {
                 const data = snap.data();
                 
-                // Firestore latency compensation: ignore snapshots that are older than our last local update
+                // Firestore latency compensation: ignore snapshots that are significantly older than our last local update
+                // Use a 5-second tolerance to avoid ignoring current snapshots due to minor client-server clock skew
                 const serverTime = data.updatedAt?.toMillis?.() || 0;
-                if (lastUpdateRef.current && serverTime > 0 && serverTime < lastUpdateRef.current) {
-                    console.log("Ignoring old snapshot (Server:", serverTime, "Local:", lastUpdateRef.current, ")");
+                const timeDiff = lastUpdateRef.current - serverTime;
+                if (lastUpdateRef.current && serverTime > 0 && timeDiff > 5000) {
+                    console.log("[useFoodLogs] Ignoring old snapshot (Server:", serverTime, "Local:", lastUpdateRef.current, "Diff:", timeDiff, "ms)");
                     return;
                 }
 
@@ -41,10 +43,11 @@ export function useFoodLogs(user, currentDate) {
                     Breakfast: [], Lunch: [], Dinner: [], Snacks: [], 
                     ...(data.foodLogs || {}) 
                 };
+                console.log("[useFoodLogs] Applying snapshot. Meals:", Object.keys(freshLogs).map(k => `${k}:${freshLogs[k].length}`).join(', '));
                 setLogs(freshLogs);
                 setWaterIntake(data.waterIntake || 0);
             } else {
-                console.log("No daily log document found, clearing state.");
+                console.log("[useFoodLogs] No daily log document found, clearing state.");
                 setLogs({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
                 setWaterIntake(0);
             }
@@ -73,8 +76,9 @@ export function useFoodLogs(user, currentDate) {
 
     // 3. Actions
     const addFoodItem = async (item, mealType, editingFood = null) => {
-        if (!user) return;
+        if (!user) { console.warn("[useFoodLogs] addFoodItem called without user"); return; }
         const dateStr = getLocalDateStr(currentDate);
+        console.log(`[useFoodLogs] addFoodItem called. Item: "${item.name}", Meal: ${mealType}, Editing: ${editingFood ? editingFood.name : 'null'}, Date: ${dateStr}`);
         const newLogs = { ...logs };
         
         const entryId = editingFood?.uid || Math.random().toString(36).substr(2, 9);
@@ -87,6 +91,7 @@ export function useFoodLogs(user, currentDate) {
 
         if (editingFood) {
             const oldMeal = editingFood.meal || mealType;
+            console.log(`[useFoodLogs] Editing mode: removing old entry from ${oldMeal}`);
             newLogs[oldMeal] = (newLogs[oldMeal] || []).filter(f => f.uid !== editingFood.uid);
         }
         newLogs[mealType] = [...(newLogs[mealType] || []), newEntry];
@@ -101,20 +106,24 @@ export function useFoodLogs(user, currentDate) {
 
         // Optimistic update
         setLogs(newLogs);
+        console.log("[useFoodLogs] Optimistic update applied. New totals:", newTotals);
 
         const logDocRef = doc(db, 'users', user.uid, 'daily_logs', dateStr);
         
-        console.log(`Saving meal to Firestore: users/${user.uid}/daily_logs/${dateStr}`);
-        console.log("Meal Content:", item.name, "to", mealType);
+        console.log(`[useFoodLogs] Saving to Firestore: users/${user.uid}/daily_logs/${dateStr}`);
 
-        await setDoc(logDocRef, { 
-            foodLogs: newLogs,
-            totals: newTotals,
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        lastUpdateRef.current = Date.now();
-        console.log("Save successful.");
+        try {
+            await setDoc(logDocRef, { 
+                foodLogs: newLogs,
+                totals: newTotals,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+            lastUpdateRef.current = Date.now();
+            console.log("[useFoodLogs] Firestore save successful. lastUpdateRef set to:", lastUpdateRef.current);
+        } catch (e) {
+            console.error("[useFoodLogs] Firestore save FAILED:", e);
+            throw e;
+        }
     };
 
     const deleteFoodItem = async (food) => {

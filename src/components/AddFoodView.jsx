@@ -179,6 +179,13 @@ const FOOD_CATEGORIES = Object.keys(FOOD_BY_CATEGORY).map(name => ({
     items: FOOD_BY_CATEGORY[name].length
 }));
 
+const MEAL_TAB_CONFIG = {
+    Breakfast: { emoji: '🌅', bg: 'rgba(251,191,36,0.18)', color: '#fcd34d', border: 'rgba(251,191,36,0.4)' },
+    Lunch:     { emoji: '🥗', bg: 'rgba(52,211,153,0.18)', color: '#6ee7b7', border: 'rgba(52,211,153,0.4)' },
+    Dinner:    { emoji: '🌙', bg: 'rgba(99,102,241,0.18)', color: '#c4b5fd', border: 'rgba(99,102,241,0.4)' },
+    Snacks:    { emoji: '🍎', bg: 'rgba(236,72,153,0.18)', color: '#f9a8d4', border: 'rgba(236,72,153,0.4)' },
+};
+
 // Change #9: Smart meal suggestions
 const mealSuggestions = {
     Breakfast: ["2 boiled eggs + toast", "1 bowl oats with banana", "Poha with chai", "2 idli + sambar", "Paratha with curd", "Upma with coconut chutney"],
@@ -350,6 +357,19 @@ import { getTimeBasedMeal } from '../config';
 // ==========================================
 
 const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initialTerm, editingFood, recentFoods = [], foodPatterns = {} }) => {
+    // Debug logging on mount / prop changes
+    useEffect(() => {
+        console.log('[AddFoodView] Mounted. Props -> meal:', meal, 'type:', type, 'editingFood:', editingFood?.name || null, 'recentFoods count:', recentFoods.length, 'foodPatterns:', Object.keys(foodPatterns));
+    }, []);
+
+    useEffect(() => {
+        console.log('[AddFoodView] recentFoods updated. Count:', recentFoods.length, 'Items:', recentFoods.map(f => f.name));
+    }, [recentFoods]);
+
+    useEffect(() => {
+        console.log('[AddFoodView] user prop changed. User exists:', !!user, 'UID:', user?.uid);
+    }, [user]);
+
     // Change #3: Auto-select meal tab based on time
     const autoMeal = useMemo(() => getTimeBasedMeal(), []);
     const [activeMeal, setActiveMeal] = useState(meal || autoMeal);
@@ -383,6 +403,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     // Frequent foods from last 30 days
     const [frequentFoods, setFrequentFoods] = useState([]);
     const [loadingFrequent, setLoadingFrequent] = useState(true);
+    const [inputFocused, setInputFocused] = useState(false);
 
     // Initialize with editing food data
     useEffect(() => {
@@ -406,6 +427,9 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
 
     const styles = THEMES[theme];
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
+    useEffect(() => {
+        console.log('[AddFoodView] AI API Key available:', !!apiKey, 'Source:', import.meta.env.VITE_GEMINI_API_KEY ? 'VITE_GEMINI_API_KEY' : (import.meta.env.VITE_FIREBASE_API_KEY ? 'VITE_FIREBASE_API_KEY (fallback)' : 'NONE'));
+    }, [apiKey]);
 
     // Get random placeholder
     const placeholder = useMemo(() =>
@@ -466,17 +490,20 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
 
     // Fetch most eaten foods from last 30 days
     useEffect(() => {
+        console.log('[AddFoodView] frequentFoods effect triggered. User exists:', !!user);
         if (!user) { setLoadingFrequent(false); return; }
         const fetchFrequent = async () => {
             try {
                 const cutoff = new Date();
                 cutoff.setDate(cutoff.getDate() - 30);
                 const startStr = getLocalDateStr(cutoff);
+                console.log('[AddFoodView] Fetching frequent foods from', startStr, 'onwards for user', user.uid);
                 const q = query(
                     collection(db, 'users', user.uid, 'daily_logs'),
                     where('__name__', '>=', startStr)
                 );
                 const snap = await getDocs(q);
+                console.log('[AddFoodView] frequentFoods getDocs returned', snap.docs.length, 'documents');
                 const counts = new Map(); // name -> { count, item }
                 snap.docs.forEach(doc => {
                     const data = doc.data();
@@ -508,9 +535,10 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                     .sort((a, b) => b.count - a.count)
                     .slice(0, 8)
                     .map(entry => entry.item);
+                console.log('[AddFoodView] frequentFoods computed:', sorted.length, 'items', sorted.map(i => i.name));
                 setFrequentFoods(sorted);
             } catch (e) {
-                console.error('Error fetching frequent foods:', e);
+                console.error('[AddFoodView] Error fetching frequent foods:', e);
             } finally {
                 setLoadingFrequent(false);
             }
@@ -529,7 +557,8 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
 
     // AI Analysis with enhanced feedback
     const handleAISubmit = async () => {
-        if (!query.trim()) return;
+        if (!query.trim()) { console.warn('[AddFoodView] AI Submit blocked: empty query'); return; }
+        console.log('[AddFoodView] AI Submit started. Query:', query, 'Type:', type);
         setIsAnalyzing(true);
         setError('');
         setAiResult(null);
@@ -556,16 +585,26 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         }
 
         try {
+            if (!apiKey) {
+                throw new Error('No AI API key configured. Check VITE_GEMINI_API_KEY env variable.');
+            }
+            console.log('[AddFoodView] AI fetching from Gemini API...');
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
+            console.log('[AddFoodView] AI response status:', response.status, response.statusText);
             const data = await response.json();
-            if (!data.candidates || data.candidates.length === 0) throw new Error("No response");
+            if (!data.candidates || data.candidates.length === 0) {
+                console.error('[AddFoodView] AI response has no candidates. Full response:', JSON.stringify(data).slice(0, 500));
+                throw new Error("No response from AI");
+            }
             const text = data.candidates[0].content.parts[0].text;
+            console.log('[AddFoodView] AI raw text length:', text.length);
             const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(jsonString);
+            console.log('[AddFoodView] AI parsed successfully. Suggestions count:', parsed.suggestions?.length || parsed.length || 0);
 
             if (type === 'exercise') {
                 if (Array.isArray(parsed)) setAiResult({ suggestions: parsed, alternatives: [] });
@@ -574,7 +613,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                 else if (Array.isArray(parsed)) setAiResult({ suggestions: parsed, alternatives: [] });
             }
         } catch (err) {
-            console.error(err);
+            console.error('[AddFoodView] AI Analysis FAILED:', err.message, err);
             // Provide helpful error messages
             if (query.match(/^\d*$/)) {
                 setError("Please add quantity. Example: '2 rotis' instead of just '2'");
@@ -618,8 +657,14 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
 
     // Handle food add with toast + save to recent meals (Change #6)
     const handleAddFood = (item) => {
-        setLastAddedItem({ item, meal: type === 'exercise' ? 'exercise' : activeMeal });
-        onAdd(item, type === 'exercise' ? 'exercise' : activeMeal);
+        const targetMeal = type === 'exercise' ? 'exercise' : activeMeal;
+        console.log('[AddFoodView] handleAddFood called. Item:', item.name, 'Target meal:', targetMeal, 'onAdd exists:', !!onAdd);
+        setLastAddedItem({ item, meal: targetMeal });
+        if (!onAdd) {
+            console.error('[AddFoodView] CRITICAL: onAdd prop is missing! Food will not be saved.');
+            return;
+        }
+        onAdd(item, targetMeal);
         setToast({ message: `${item.name} added ✓`, type: 'success' });
 
         // Save to localStorage recent meals
@@ -778,335 +823,276 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     };
 
     // Styles
-    const modalBg = theme === 'dark' ? 'bg-[#000000]' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-[#F2F2F7]');
+    const isDark = theme === 'dark';
+    const modalBg = isDark ? 'bg-[#000000]' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-[#F2F2F7]');
     const headerBg = styles.card;
-    const inputBg = theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-white';
-    const cardBg = theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-white';
+    const inputBg = isDark ? 'bg-[#1C1C1E]' : 'bg-white';
+    const cardBg = isDark ? 'bg-[#1C1C1E]' : 'bg-white';
+    const glassCard = isDark
+        ? 'backdrop-blur-xl bg-[#1C1C1E]/80 border border-white/10'
+        : 'bg-white border border-slate-100 shadow-sm';
+
+    const getMealTabStyle = (mealName, active) => {
+        if (!active) {
+            return isDark
+                ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', borderColor: 'rgba(255,255,255,0.08)' }
+                : { background: '#f3f4f6', color: '#6b7280', borderColor: '#e5e7eb' };
+        }
+        const cfg = MEAL_TAB_CONFIG[mealName];
+        return isDark
+            ? { background: cfg.bg, color: cfg.color, borderColor: cfg.border }
+            : { background: '#000', color: '#fff', borderColor: '#000' };
+    };
 
     return (
         <div className={`fixed inset-0 z-[60] flex flex-col ${modalBg}`}>
-            {/* Header - Fixed */}
-            <div className={`px-6 pt-12 pb-4 shadow-sm z-10 ${headerBg} transition-colors shrink-0`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex flex-col">
-                        <span className={`text-xs font-bold uppercase tracking-widest ${styles.textSec}`}>
-                            {type === 'exercise' ? 'Log Activity' : (editingFood ? 'Edit Item' : 'Add Food')}
-                        </span>
-                        <h2 className={`text-2xl font-bold ${styles.textMain}`}>
-                            {type === 'exercise' ? 'New Workout' : (editingFood ? 'Update Entry' : 'New Entry')}
-                        </h2>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'} ${styles.textSec}`}
-                        aria-label="Close"
-                    >
-                        <X size={24} />
-                    </button>
-                </div>
-
-                {/* Meal Tabs — Change #3: auto-selection indicator */}
-                {type !== 'exercise' && (
-                    <div>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                            {MEAL_OPTIONS.map(m => (
-                                <button
-                                    key={m}
-                                    onClick={() => { setActiveMeal(m); setMealAutoSelected(false); }}
-                                    className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap ${activeMeal === m
-                                            ? (theme === 'dark' ? 'bg-white text-black' : (theme === 'wooden' ? 'bg-[#3E2723] text-[#EAD8B1]' : 'bg-black text-white'))
-                                            : (theme === 'dark' ? 'bg-[#2C2C2E] text-[#c0c7d6]' : 'bg-gray-200 text-gray-500')
-                                        }`}
-                                    aria-label={`Select ${m} meal`}
-                                >
-                                    {m}
-                                </button>
-                            ))}
-                        </div>
-                        {mealAutoSelected && (
-                            <p className={`text-[10px] mt-1.5 ml-1 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
-                                Auto-selected · tap to change
-                            </p>
-                        )}
-                    </div>
-                )}
-            </div>
-
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-4 pb-32">
-                    {/* Recently Logged Section */}
-                    {type !== 'exercise' && recentFoods.length > 0 && (
+                <div className="max-w-md mx-auto px-5 pt-6 pb-32 relative z-10">
+
+                    {/* ════ HEADER ════ */}
+                    <div className="flex items-start justify-between mb-7">
+                        <div>
+                            <p className={`text-[11px] tracking-[0.14em] font-bold uppercase mb-1.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                ✦ {type === 'exercise' ? 'Log Activity' : (editingFood ? 'Edit Item' : 'AI Food Entry')}
+                            </p>
+                            <h1 className={`text-4xl font-black leading-none ${styles.textMain}`}
+                                style={isDark ? { background: 'linear-gradient(135deg, #fff 40%, rgba(255,255,255,0.5))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
+                                {type === 'exercise' ? 'New Workout' : (editingFood ? 'Update Entry' : 'New Entry')}
+                            </h1>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isDark ? 'bg-white/[0.07] border border-white/10 text-white/40 hover:bg-white/[0.13] hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            aria-label="Close"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* ════ MEAL TABS ════ */}
+                    {type !== 'exercise' && (
                         <div className="mb-6">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className={`text-xs font-bold ${styles.textSec} uppercase tracking-widest flex items-center gap-2`}>
-                                    <Clock size={12} /> Recently Logged
-                                </h3>
-                                <select className={`text-xs rounded-lg px-2 py-1 ${inputBg} ${styles.textSec} border ${styles.border}`}>
-                                    <option>Today</option>
-                                    <option>This Week</option>
-                                </select>
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                {MEAL_OPTIONS.map(m => {
+                                    const isActive = activeMeal === m;
+                                    const cfg = MEAL_TAB_CONFIG[m];
+                                    const tabStyle = getMealTabStyle(m, isActive);
+                                    return (
+                                        <button
+                                            key={m}
+                                            onClick={() => { setActiveMeal(m); setMealAutoSelected(false); }}
+                                            className="px-4 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap border"
+                                            style={tabStyle}
+                                            aria-label={`Select ${m} meal`}
+                                        >
+                                            {cfg.emoji} {m}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                                {recentFoods.slice(0, 8).map((food, idx) => (
+                            {mealAutoSelected && (
+                                <p className={`text-[10px] mt-1.5 ml-1 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                    Auto-selected · tap to change
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ════ AI INPUT CARD ════ */}
+                    <div className={`rounded-3xl p-6 mb-4 transition-all ${glassCard}`}
+                        style={inputFocused ? { boxShadow: '0 0 40px rgba(52,211,153,0.08)' } : {}}>
+
+                        {/* Top bar */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className={`text-[15px] font-bold ${styles.textMain}`}>
+                                    {type === 'exercise' ? 'Describe your workout' : 'What did you eat?'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {/* Reset / Clear button */}
+                                {(query.trim() || aiResult) && (
                                     <button
-                                        key={idx}
-                                        onClick={() => handleAddFood(food)}
-                                        className={`flex-shrink-0 p-3 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 ${cardBg} ${styles.border}`}
-                                        style={{ minWidth: '140px' }}
+                                        onClick={() => { setQuery(''); setAiResult(null); setError(''); inputRef.current?.focus(); }}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${isDark ? 'bg-white/[0.06] text-white/40 border border-white/[0.08] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200'}`}
+                                        title="Clear search & result"
+                                        aria-label="Reset"
                                     >
-                                        <p className={`font-bold text-sm truncate ${styles.textMain}`}>{food.name}</p>
-                                        <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{food.portion || food.weight}</p>
-                                        <div className="flex items-center justify-between mt-2">
-                                            <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
-                                                {food.calories} kcal
-                                            </span>
-                                            <Plus size={14} className={styles.accentBlueText} />
-                                        </div>
+                                        <X size={12} strokeWidth={3} /> Reset
                                     </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Smart Suggestion Banner */}
-                    {type !== 'exercise' && foodPatterns?.suggestion && (
-                        <div className={`mb-6 p-4 rounded-2xl border ${theme === 'dark' ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/30' : 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-xl ${theme === 'dark' ? 'bg-purple-500/30' : 'bg-indigo-100'}`}>
-                                    <Zap size={18} className={theme === 'dark' ? 'text-purple-400' : 'text-indigo-600'} />
-                                </div>
-                                <div className="flex-1">
-                                    <p className={`text-sm ${styles.textMain}`}>{foodPatterns.suggestion}</p>
-                                </div>
-                                <button className={`px-3 py-1.5 rounded-lg text-xs font-bold ${theme === 'dark' ? 'bg-purple-500 text-white' : 'bg-indigo-600 text-white'}`}>
-                                    + Add
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* AI Log Section (Primary) */}
-                    <div className="mb-6">
-                        {/* First-time tooltip */}
-                        {showTooltip && (
-                            <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 animate-fade-in ${theme === 'dark' ? 'bg-purple-500/20 text-purple-300' : 'bg-indigo-100 text-indigo-700'}`}>
-                                <Sparkles size={16} />
-                                <span className="text-sm font-medium">Describe your meal in plain language ✨</span>
-                            </div>
-                        )}
-
-                        <div className={`p-6 rounded-[2rem] shadow-sm relative overflow-hidden transition-colors border ${styles.card} ${styles.border}`}>
-                            {/* Change #9: Sparkle icon — interactive suggestions trigger */}
-                            <div className="absolute top-0 right-0 p-3" ref={suggestionsRef}>
-                                <button
-                                    onClick={handleToggleSuggestions}
-                                    className={`p-2.5 rounded-xl transition-all hover:scale-110 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
-                                        showSuggestions 
-                                            ? (theme === 'dark' ? 'bg-purple-500/30 text-purple-400' : 'bg-indigo-100 text-indigo-600')
-                                            : (theme === 'dark' ? 'bg-[#2C2C2E] text-[#9aa3b2]' : 'bg-gray-100 text-gray-400')
-                                    }`}
-                                    title="Smart suggestions"
-                                    aria-label="Smart meal suggestions"
-                                >
-                                    <Sparkles size={18} />
-                                </button>
-
-                                {/* Suggestions dropdown */}
-                                {showSuggestions && (
-                                    <div className={`absolute top-14 right-0 w-64 p-3 rounded-2xl shadow-xl border z-20 animate-fade-in ${
-                                        theme === 'dark' ? 'bg-[#2C2C2E] border-white/10' : 'bg-white border-gray-200 shadow-lg'
-                                    }`}>
-                                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
-                                            Try for {activeMeal}
-                                        </p>
-                                        <div className="space-y-1">
-                                            {currentSuggestions.map((sug, i) => (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => { setQuery(sug); setShowSuggestions(false); }}
-                                                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                                                        theme === 'dark' 
-                                                            ? 'text-white hover:bg-white/10 active:bg-white/20' 
-                                                            : 'text-gray-800 hover:bg-gray-50 active:bg-gray-100'
-                                                    }`}
-                                                >
-                                                    {sug}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
                                 )}
-                            </div>
-
-                            {/* Change #1: Renamed label */}
-                            <label className={`block text-sm font-bold mb-2 ${styles.textSec}`}>
-                                {type === 'exercise' ? 'Describe your workout' : 'What did you eat?'}
-                            </label>
-
-                            <div className="relative">
-                                <textarea
-                                    ref={inputRef}
-                                    className={`w-full text-lg placeholder:text-gray-400 outline-none resize-none bg-transparent ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
-                                    rows={3}
-                                    placeholder={type === 'exercise' ? "e.g. 30 mins jogging at moderate pace..." : placeholder}
-                                    value={query}
-                                    onChange={handleQueryChange}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleAISubmit();
-                                        }
-                                    }}
-                                    disabled={isAnalyzing}
-                                    maxLength={200}
-                                    aria-label="Meal description input"
-                                />
-
-                                {/* Change #2: Character counter — only show at 150+ */}
-                                {query.length >= 150 && (
-                                    <span className={`absolute bottom-0 right-0 text-xs font-medium ${
-                                        query.length >= 190 ? 'text-red-400' : 'text-amber-400'
-                                    }`}>
-                                        {query.length}/200
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+                                    style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                                    <span className="text-[11px] font-extrabold tracking-wide"
+                                        style={{ background: 'linear-gradient(90deg, #34d399, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                        AI POWERED
                                     </span>
-                                )}
-                            </div>
-
-                            {/* Voice indicator */}
-                            <VoiceRecordingIndicator isListening={isVoiceListening} isProcessing={isVoiceProcessing} theme={theme} />
-
-                            <div className="flex justify-between items-center mt-4">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleVoiceInput}
-                                        disabled={isAnalyzing}
-                                        className={`p-2 rounded-full transition-all ${isVoiceListening
-                                                ? 'bg-red-500 text-white animate-pulse'
-                                                : `${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`
-                                            }`}
-                                        title="Tap and say your meal naturally"
-                                        aria-label="Voice input"
-                                    >
-                                        <Mic size={20} />
-                                    </button>
-
-                                    {/* Change #5: Demoted Scan button — inline icon */}
-                                    {type !== 'exercise' && (
-                                        <div className="relative">
-                                            <button
-                                                className={`p-2 rounded-full transition-all ${
-                                                    showScanPulse ? 'animate-pulse ring-2 ring-blue-500/50' : ''
-                                                } ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`}
-                                                title="Scan a food label or barcode"
-                                                aria-label="Scan barcode"
-                                            >
-                                                <ScanLine size={20} />
-                                            </button>
-                                            {showScanPulse && (
-                                                <div className={`absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-30 shadow-lg ${
-                                                    theme === 'dark' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'bg-black text-white'
-                                                }`}>
-                                                    Scan a food label
-                                                    <div className={`absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${
-                                                        theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-black'
-                                                    }`} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Voice tip */}
-                                    {!isVoiceListening && (
-                                        <span className={`text-xs hidden sm:block ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
-                                            Try: Tap and say your meal
-                                        </span>
-                                    )}
                                 </div>
-
-                                {/* Change #4: Analyze button with loading spinner */}
-                                <button
-                                    onClick={handleAISubmit}
-                                    disabled={!query || isAnalyzing}
-                                    className={`px-6 py-3 rounded-full font-bold text-white transition-all flex items-center gap-2 ${!query
-                                            ? 'bg-gray-400'
-                                            : isAnalyzing
-                                                ? (theme === 'dark' ? 'bg-[#0A84FF] opacity-80' : 'bg-black opacity-80')
-                                                : (theme === 'dark' ? 'bg-[#0A84FF]' : (theme === 'wooden' ? 'bg-[#8B4513]' : 'bg-black'))
-                                        }`}
-                                    aria-label="Analyze meal"
-                                >
-                                    {isAnalyzing ? (
-                                        <>
-                                            <Loader2 size={18} className="animate-spin" /> Analyzing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Analyze <ArrowRight size={18} strokeWidth={2.5} />
-                                        </>
-                                    )}
-                                </button>
                             </div>
+                        </div>
 
-                            {/* Analysis progress */}
-                            {isAnalyzing && (
-                                <div className={`mt-4 pt-4 border-t ${styles.border}`}>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex gap-1">
-                                            {[...Array(3)].map((_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-blue-400' : 'bg-blue-600'}`}
-                                                    style={{ animationDelay: `${i * 0.1}s` }}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{analysisStep}</span>
+                        {/* Sparkle suggestions trigger */}
+                        <div className="absolute top-4 right-4" ref={suggestionsRef}>
+                            <button
+                                onClick={handleToggleSuggestions}
+                                className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${showSuggestions
+                                        ? (isDark ? 'bg-purple-500/30 text-purple-400' : 'bg-indigo-100 text-indigo-600')
+                                        : (isDark ? 'bg-white/5 text-white/30' : 'bg-gray-100 text-gray-400')
+                                    }`}
+                                title="Smart suggestions"
+                                aria-label="Smart meal suggestions"
+                            >
+                                <Sparkles size={16} />
+                            </button>
+                            {showSuggestions && (
+                                <div className={`absolute top-10 right-0 w-56 p-3 rounded-2xl shadow-xl border z-20 animate-fade-in ${isDark ? 'bg-[#1C1C1E] border-white/10' : 'bg-white border-gray-200'}`}>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                                        Try for {activeMeal}
+                                    </p>
+                                    <div className="space-y-1">
+                                        {currentSuggestions.map((sug, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => { setQuery(sug); setShowSuggestions(false); }}
+                                                className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors ${isDark ? 'text-white hover:bg-white/10' : 'text-gray-800 hover:bg-gray-50'}`}
+                                            >
+                                                {sug}
+                                            </button>
+                                        ))}
                                     </div>
-                                    {slowConnection && (
-                                        <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}>
-                                            Taking longer than usual... Still working
-                                        </p>
-                                    )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Change #10: Search database link — improved contrast */}
-                        {type !== 'exercise' && (
+                        {/* Textarea */}
+                        <div className="relative">
+                            <textarea
+                                ref={inputRef}
+                                className={`w-full bg-transparent text-lg outline-none resize-none ${isDark ? 'placeholder:text-white/20' : 'placeholder:text-gray-400'} ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
+                                rows={4}
+                                placeholder={type === 'exercise' ? "e.g. 30 mins jogging at moderate pace..." : placeholder}
+                                value={query}
+                                onChange={handleQueryChange}
+                                onFocus={() => setInputFocused(true)}
+                                onBlur={() => setInputFocused(false)}
+                                onKeyDown={(e) => {
+                                    if ((e.key === 'Enter' && !e.shiftKey) || (e.ctrlKey && e.key === 'Enter')) {
+                                        e.preventDefault();
+                                        handleAISubmit();
+                                    }
+                                }}
+                                disabled={isAnalyzing}
+                                maxLength={200}
+                                aria-label="Meal description input"
+                            />
+                            {query.length >= 150 && (
+                                <span className={`absolute bottom-0 right-0 text-xs font-medium ${query.length >= 190 ? 'text-red-400' : 'text-amber-400'}`}>
+                                    {query.length}/200
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Char hint */}
+                        <p className={`text-[11px] mt-1.5 min-h-[16px] transition-colors ${query.length > 2 ? 'text-emerald-400/60' : (isDark ? 'text-white/20' : 'text-gray-400')}`}>
+                            {query.length > 2 ? `✓ Ready to analyze · ${query.split(' ').length} words` : (query.length > 0 ? 'Keep typing...' : '')}
+                        </p>
+
+                        {/* Voice indicator */}
+                        <VoiceRecordingIndicator isListening={isVoiceListening} isProcessing={isVoiceProcessing} theme={theme} />
+
+                        {/* Divider */}
+                        <div className="h-px my-4" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)' }} />
+
+                        {/* Input modes */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleVoiceInput}
+                                disabled={isAnalyzing}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isVoiceListening
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                        : (isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200')
+                                    }`}
+                            >
+                                <Mic size={14} /> Voice Input
+                            </button>
+                            {type !== 'exercise' && (
+                                <div className="relative">
+                                    <button
+                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${showScanPulse ? 'animate-pulse' : ''} ${isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}`}
+                                        title="Scan a food label or barcode"
+                                    >
+                                        <ScanLine size={14} /> Scan Barcode
+                                    </button>
+                                    {showScanPulse && (
+                                        <div className={`absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-30 shadow-lg ${isDark ? 'bg-[#1C1C1E] text-white border border-white/10' : 'bg-black text-white'}`}>
+                                            Scan a food label
+                                            <div className={`absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${isDark ? 'bg-[#1C1C1E]' : 'bg-black'}`} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <button
                                 onClick={() => setShowSearchOverlay(true)}
-                                className={`mt-3 text-sm font-medium w-full text-center py-2 hover:underline flex items-center justify-center gap-1 ${
-                                    theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'
-                                }`}
+                                className={`ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}`}
                             >
-                                <Search size={14} /> or search food database →
+                                <Search size={14} /> Search
                             </button>
-                        )}
+                        </div>
                     </div>
 
-                    {/* Error Message */}
+                    {/* ════ ANALYZE BUTTON ════ */}
+                    <div className="mb-5">
+                        <button
+                            onClick={handleAISubmit}
+                            disabled={!query.trim() || isAnalyzing}
+                            className="w-full py-4 rounded-2xl font-extrabold text-sm transition-all relative overflow-hidden"
+                            style={{
+                                background: 'linear-gradient(135deg, #34d399, #22d3ee)',
+                                color: '#000',
+                                opacity: !query.trim() || isAnalyzing ? 0.4 : 1,
+                                boxShadow: query.trim() && !isAnalyzing ? '0 4px 24px rgba(52,211,153,0.3)' : 'none',
+                                cursor: !query.trim() || isAnalyzing ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            {isAnalyzing ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Loader2 size={18} className="animate-spin" /> Analyzing your meal...
+                                </span>
+                            ) : (
+                                <>✦ &nbsp;Analyze with AI</>
+                            )}
+                        </button>
+                        <p className={`text-[11px] text-center mt-2.5 ${isDark ? 'text-white/18' : 'text-gray-400'}`}>
+                            Ctrl + Enter to analyze quickly
+                        </p>
+                    </div>
+
+                    {/* First-time tooltip */}
+                    {showTooltip && (
+                        <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 animate-fade-in ${isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                            <Sparkles size={16} />
+                            <span className="text-sm font-medium">Describe your meal in plain language ✨</span>
+                        </div>
+                    )}
+
+                    {/* ════ ERROR MESSAGE ════ */}
                     {error && (
-                        <div className="mb-6 p-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl">
+                        <div className="mb-5 p-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl">
                             <p className="text-sm mb-3">{error}</p>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => setQuery('')}
-                                    className="px-3 py-1.5 bg-red-500/20 rounded-lg text-xs font-semibold hover:bg-red-500/30 transition-colors"
-                                >
+                                <button onClick={() => setQuery('')} className="px-3 py-1.5 bg-red-500/20 rounded-lg text-xs font-semibold hover:bg-red-500/30 transition-colors">
                                     Add Quantity
                                 </button>
-                                <button
-                                    onClick={() => { setShowSearchOverlay(true); setError(''); }}
-                                    className="px-3 py-1.5 bg-red-500/20 rounded-lg text-xs font-semibold hover:bg-red-500/30 transition-colors"
-                                >
+                                <button onClick={() => { setShowSearchOverlay(true); setError(''); }} className="px-3 py-1.5 bg-red-500/20 rounded-lg text-xs font-semibold hover:bg-red-500/30 transition-colors">
                                     Try Search Instead
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* AI Suggestions (Loading State) */}
+                    {/* ════ AI SUGGESTIONS (LOADING) ════ */}
                     {isAnalyzing && (
                         <div className="mb-6 space-y-3">
                             <h3 className={`text-sm font-bold ${styles.textSec} uppercase tracking-widest ml-1`}>AI Suggestions</h3>
@@ -1116,110 +1102,145 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
                     )}
 
-                    {/* AI Suggestions (Results) — Change #4: inline nutrition preview */}
+                    {/* ════ RESULT CARD ════ */}
                     {aiResult && !isAnalyzing && (
-                        <div className="animate-fade-in mb-6 space-y-3">
-                            <h3 className={`text-sm font-bold ${styles.textSec} uppercase tracking-widest ml-1 flex items-center gap-2`}>
-                                <Sparkles size={14} /> AI Suggestions
-                            </h3>
+                        <div className="mb-6 space-y-4">
+                            {aiResult.suggestions.map((item, idx) => {
+                                const totalMacros = (item.protein || 0) + (item.carbs || 0) + (item.fat || 0);
+                                const pFlex = totalMacros > 0 ? Math.max(1, Math.round((item.protein / totalMacros) * 100)) : 1;
+                                const cFlex = totalMacros > 0 ? Math.max(1, Math.round((item.carbs / totalMacros) * 100)) : 1;
+                                const fFlex = totalMacros > 0 ? Math.max(1, Math.round((item.fat / totalMacros) * 100)) : 1;
+                                return (
+                                    <div key={idx} className={`rounded-3xl p-6 relative overflow-hidden ${glassCard}`}>
+                                        {/* Weight Editor Overlay */}
+                                        {editingWeight === idx && (
+                                            <WeightEditor
+                                                value={item.weight}
+                                                onChange={(newWeight) => handleWeightUpdate(idx, newWeight)}
+                                                onClose={() => setEditingWeight(null)}
+                                                theme={theme}
+                                            />
+                                        )}
 
-                            {aiResult.suggestions.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className={`p-4 rounded-2xl shadow-sm border transition-all relative ${cardBg} ${styles.border}`}
-                                >
-                                    {/* Weight Editor Overlay */}
-                                    {editingWeight === idx && (
-                                        <WeightEditor
-                                            value={item.weight}
-                                            onChange={(newWeight) => handleWeightUpdate(idx, newWeight)}
-                                            onClose={() => setEditingWeight(null)}
-                                            theme={theme}
-                                        />
-                                    )}
-
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
-                                                {item.confidence && <ConfidenceIndicator score={item.confidence} theme={theme} />}
-                                            </div>
-
-                                            <div className={`flex items-center gap-3 text-sm`}>
-                                                {type === 'exercise' ? (
-                                                    <span className="text-blue-500 font-medium">{item.duration}</span>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setEditingWeight(idx)}
-                                                        className={`font-bold ${styles.accentBlueText} hover:underline flex items-center gap-1`}
-                                                    >
-                                                        {item.weight} <Edit2 size={12} />
-                                                    </button>
-                                                )}
-                                                <span className={theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}>
-                                                    {item.calories} {type === 'exercise' ? 'burned' : 'kcal'}
-                                                </span>
-                                            </div>
-
-                                            {/* Change #4: Inline nutrition preview */}
-                                            {type !== 'exercise' && (
-                                                <div className={`mt-3 flex gap-3 text-xs ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>
-                                                    <span><strong className={styles.textMain}>{item.calories}</strong> kcal</span>
-                                                    <span><strong className={styles.textMain}>{item.protein}g</strong> prot</span>
-                                                    <span><strong className={styles.textMain}>{item.carbs}g</strong> carb</span>
-                                                    <span><strong className={styles.textMain}>{item.fat}g</strong> fat</span>
-                                                </div>
-                                            )}
-
-                                            {/* Low confidence warning */}
-                                            {item.confidence && item.confidence < 0.5 && (
-                                                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
-                                                    <AlertCircle size={12} />
-                                                    <span className="font-medium">Low confidence — please verify</span>
-                                                </div>
-                                            )}
-
-                                            {/* Expandable Macros */}
-                                            {type !== 'exercise' && (
-                                                <button
-                                                    onClick={() => toggleMacroExpansion(idx)}
-                                                    className={`mt-2 text-xs flex items-center gap-1 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'} hover:opacity-80`}
-                                                >
-                                                    <ChevronDown size={14} className={`transform transition-transform ${expandedMacros.has(idx) ? 'rotate-180' : ''}`} />
-                                                    {expandedMacros.has(idx) ? 'Hide' : 'Show'} macros
-                                                </button>
-                                            )}
-
-                                            {expandedMacros.has(idx) && type !== 'exercise' && (
-                                                <div className="mt-3 space-y-2 animate-fade-in">
-                                                    <MacroBar label="Protein" value={item.protein} max={50} color="bg-blue-500" theme={theme} />
-                                                    <MacroBar label="Carbs" value={item.carbs} max={100} color="bg-green-500" theme={theme} />
-                                                    <MacroBar label="Fat" value={item.fat} max={50} color="bg-orange-500" theme={theme} />
-                                                </div>
-                                            )}
+                                        {/* AI Analysis Complete badge */}
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-4"
+                                            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px #34d399' }} />
+                                            <span className="text-[11px] font-bold text-emerald-400 tracking-wide">AI ANALYSIS COMPLETE</span>
                                         </div>
 
-                                        <button
-                                            onClick={() => handleAddFood(item)}
-                                            className={`p-3 rounded-full transition-all hover:scale-110 active:scale-95 ${theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}
-                                            aria-label={`Add ${item.name}`}
-                                        >
-                                            <Plus size={20} />
-                                        </button>
+                                        {/* Food + kcal */}
+                                        <div className="flex items-start justify-between mb-5">
+                                            <div className="flex-1 mr-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className={`text-xl font-extrabold leading-tight ${styles.textMain}`}>{item.name}</p>
+                                                    {item.confidence && <ConfidenceIndicator score={item.confidence} theme={theme} />}
+                                                </div>
+                                                <p className={`text-xs mt-1 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>
+                                                    ~{item.weight} estimated portion
+                                                </p>
+                                                {type === 'exercise' && (
+                                                    <p className="text-sm text-blue-500 font-medium mt-1">{item.duration}</p>
+                                                )}
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-[40px] font-black leading-none"
+                                                    style={{ background: 'linear-gradient(135deg, #34d399, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                                    {item.calories}
+                                                </p>
+                                                <p className={`text-[11px] font-semibold ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                                    {type === 'exercise' ? 'burned' : 'kcal'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Macro bar visual */}
+                                        {type !== 'exercise' && (
+                                            <div className="h-1.5 rounded-full overflow-hidden flex gap-0.5 mb-3">
+                                                <div style={{ flex: pFlex, background: '#60a5fa', borderRadius: '99px' }} />
+                                                <div style={{ flex: cFlex, background: '#34d399', borderRadius: '99px' }} />
+                                                <div style={{ flex: fFlex, background: '#fb923c', borderRadius: '99px' }} />
+                                            </div>
+                                        )}
+
+                                        {/* Macro chips */}
+                                        {type !== 'exercise' && (
+                                            <div className="flex gap-2 flex-wrap mb-5">
+                                                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                    🔵 Protein {item.protein}g
+                                                </span>
+                                                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    🟢 Carbs {item.carbs}g
+                                                </span>
+                                                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                                    🟠 Fat {item.fat}g
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Expandable Macros */}
+                                        {type !== 'exercise' && (
+                                            <button
+                                                onClick={() => toggleMacroExpansion(idx)}
+                                                className={`text-xs flex items-center gap-1 mb-3 ${isDark ? 'text-white/30' : 'text-gray-400'} hover:opacity-80`}
+                                            >
+                                                <ChevronDown size={14} className={`transform transition-transform ${expandedMacros.has(idx) ? 'rotate-180' : ''}`} />
+                                                {expandedMacros.has(idx) ? 'Hide' : 'Show'} macros
+                                            </button>
+                                        )}
+                                        {expandedMacros.has(idx) && type !== 'exercise' && (
+                                            <div className="mb-4 space-y-2 animate-fade-in">
+                                                <MacroBar label="Protein" value={item.protein} max={50} color="bg-blue-500" theme={theme} />
+                                                <MacroBar label="Carbs" value={item.carbs} max={100} color="bg-green-500" theme={theme} />
+                                                <MacroBar label="Fat" value={item.fat} max={50} color="bg-orange-500" theme={theme} />
+                                            </div>
+                                        )}
+
+                                        {/* Low confidence warning */}
+                                        {item.confidence && item.confidence < 0.5 && (
+                                            <div className="mb-3 flex items-center gap-1.5 text-xs text-amber-400">
+                                                <AlertCircle size={12} />
+                                                <span className="font-medium">Low confidence — please verify</span>
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex gap-2.5 mb-3">
+                                            <button
+                                                onClick={() => handleAddFood(item)}
+                                                className="flex-1 py-4 rounded-2xl font-extrabold text-sm text-black transition-all hover:-translate-y-0.5"
+                                                style={{
+                                                    background: 'linear-gradient(135deg, #34d399, #22d3ee)',
+                                                    boxShadow: '0 4px 24px rgba(52,211,153,0.3)'
+                                                }}
+                                            >
+                                                ✓ &nbsp;Log it
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingWeight(idx)}
+                                                className={`px-5 py-4 rounded-2xl font-semibold text-sm transition-all ${isDark ? 'bg-white/[0.07] text-white/70 border border-white/[0.12] hover:bg-white/[0.12]' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'}`}
+                                            >
+                                                ✏️ Adjust
+                                            </button>
+                                        </div>
+                                        <p className="text-center text-xs text-emerald-400/55 cursor-pointer font-semibold"
+                                            onClick={() => { setAiResult(null); inputRef.current?.focus(); }}>
+                                            ↻ &nbsp;Re-analyze with different portion
+                                        </p>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {/* Alternative suggestions */}
                             {aiResult.alternatives && aiResult.alternatives.length > 0 && (
-                                <div className={`mt-4 p-3 rounded-xl ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-gray-50'}`}>
-                                    <p className={`text-xs mb-2 ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>Not quite right? Try:</p>
+                                <div className={`mt-2 p-3 rounded-xl ${isDark ? 'bg-[#1C1C1E]' : 'bg-gray-50'}`}>
+                                    <p className={`text-xs mb-2 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Not quite right? Try:</p>
                                     <div className="flex flex-wrap gap-2">
                                         {aiResult.alternatives.map((alt, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => { setQuery(alt); setAiResult(null); }}
-                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-white text-gray-700'} border ${styles.border} hover:opacity-80 transition-colors`}
+                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium ${isDark ? 'bg-white/[0.04] text-white border border-white/[0.08]' : 'bg-white text-gray-700 border border-gray-200'} hover:opacity-80 transition-colors`}
                                             >
                                                 {alt}
                                             </button>
@@ -1230,110 +1251,165 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
                     )}
 
-                    {/* Your Favorites — Most eaten in last 30 days */}
-                    {type !== 'exercise' && frequentFoods.length > 0 && (
-                        <div className="mb-6">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className={`text-xs font-bold uppercase tracking-widest ${styles.textSec} flex items-center gap-2`}>
-                                    <Heart size={12} /> Your Favorites
-                                </h3>
-                                <span className={`text-[10px] font-medium ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>Last 30 days</span>
+                    {/* ════ SMART SUGGESTION BANNER ════ */}
+                    {type !== 'exercise' && foodPatterns?.suggestion && (
+                        <div className={`mb-6 p-4 rounded-2xl border ${isDark ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/30' : 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-xl ${isDark ? 'bg-purple-500/30' : 'bg-indigo-100'}`}>
+                                    <Zap size={18} className={isDark ? 'text-purple-400' : 'text-indigo-600'} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`text-sm ${styles.textMain}`}>{foodPatterns.suggestion}</p>
+                                </div>
+                                <button className={`px-3 py-1.5 rounded-lg text-xs font-bold ${isDark ? 'bg-purple-500 text-white' : 'bg-indigo-600 text-white'}`}>
+                                    + Add
+                                </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                {frequentFoods.map((item, idx) => (
+                        </div>
+                    )}
+
+                    {/* ════ FOOD DATABASE SEARCH TRIGGER ════ */}
+                    {type !== 'exercise' && (
+                        <div className="mb-7">
+                            <button
+                                onClick={() => setShowSearchOverlay(true)}
+                                className={`w-full py-3.5 rounded-2xl text-[13px] font-bold cursor-pointer flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-white/[0.03] text-emerald-400/70 border border-white/[0.08] hover:bg-emerald-400/5 hover:border-emerald-400/25' : 'bg-gray-50 text-blue-600 border border-gray-200 hover:bg-blue-50'}`}
+                            >
+                                <Search size={15} strokeWidth={2.5} /> Search food database
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ════ RECENTLY LOGGED ════ */}
+                    {type !== 'exercise' && (
+                        <div className="mb-7">
+                            <div className="flex items-center justify-between mb-3.5">
+                                <p className={`text-sm font-bold ${styles.textMain}`}>Recently logged today</p>
+                                <p className={`text-[11px] font-semibold cursor-pointer ${isDark ? 'text-emerald-400/60' : 'text-emerald-600'}`}>Tap + to re-add</p>
+                            </div>
+                            {recentFoods.length === 0 && (
+                                <p className={`text-xs ${isDark ? 'text-white/20' : 'text-gray-400'} mb-2`}>
+                                    [Debug] recentFoods is empty — no recently logged items to show.
+                                </p>
+                            )}
+                            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                                {recentFoods.slice(0, 8).map((food, idx) => (
                                     <button
                                         key={idx}
-                                        onClick={() => handleQuickAdd(item)}
-                                        className={`p-3 rounded-xl text-left border transition-all hover:scale-[1.02] active:scale-95 relative group ${cardBg} ${styles.border} ${
-                                            theme === 'dark' ? 'hover:border-white/20' : 'hover:border-gray-300'
-                                        }`}
-                                        title={`~${item.calories} kcal`}
+                                        onClick={() => handleAddFood(food)}
+                                        className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
+                                        style={{ minWidth: '152px' }}
                                     >
-                                        <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition-all opacity-60 group-hover:opacity-100 ${
-                                            theme === 'dark' ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            <Plus size={12} />
-                                        </div>
-                                        <div className="flex items-center gap-2.5">
-                                            <span className="text-2xl flex-shrink-0">{item.icon || '🍽️'}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`font-bold text-sm truncate ${styles.textMain}`}>{item.name}</p>
-                                                <p className={`text-xs truncate ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[28px]">{food.icon || '🍽️'}</span>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                +
                                             </div>
                                         </div>
-                                        <p className={`text-xs font-semibold mt-1.5 ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
-                                            ~{item.calories} kcal
-                                        </p>
+                                        <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{food.name}</p>
+                                        <p className={`text-[11px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{food.portion || food.weight}</p>
+                                        <p className="text-[13px] font-extrabold text-orange-400 mt-1">{food.calories} kcal</p>
                                     </button>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* Quick Add / Recent Section — Changes #6, #7, #8 */}
+                    {/* ════ FAVORITES ════ */}
+                    {type !== 'exercise' && (
+                        <div className="mb-7">
+                            <p className={`text-sm font-bold mb-3.5 ${styles.textMain}`}>⭐ Favorites</p>
+                            {frequentFoods.length === 0 && !loadingFrequent && (
+                                <div className="rounded-3xl p-9 text-center"
+                                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                    <div className="text-[40px] mb-3 grayscale opacity-50">🌟</div>
+                                    <p className={`text-[15px] font-bold ${isDark ? 'text-white/35' : 'text-gray-400'}`}>No favorites yet</p>
+                                    <p className={`text-xs mt-1.5 leading-relaxed ${isDark ? 'text-white/18' : 'text-gray-400'}`}>
+                                        Foods you log 3+ times will<br />automatically appear here
+                                    </p>
+                                    <button
+                                        onClick={() => setShowSearchOverlay(true)}
+                                        className="mt-4 px-5 py-2 rounded-full text-xs font-bold cursor-pointer transition-all"
+                                        style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399' }}
+                                    >
+                                        Browse food database →
+                                    </button>
+                                </div>
+                            )}
+                            {frequentFoods.length > 0 && (
+                                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                                    {frequentFoods.map((item, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleQuickAdd(item)}
+                                            className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
+                                            style={{ minWidth: '152px' }}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-[28px]">{item.icon || '🍽️'}</span>
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                    +
+                                                </div>
+                                            </div>
+                                            <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{item.name}</p>
+                                            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{item.portion}</p>
+                                            <p className="text-[13px] font-extrabold text-orange-400 mt-1">{item.calories} kcal</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ════ QUICK ADD / RECENT ════ */}
                     {type !== 'exercise' && (
                         <div className="mb-6">
-                            {/* Change #8: Removed Edit button. Change #6: Dynamic label */}
                             <div className="flex items-center justify-between mb-3">
-                                <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
                                     {isUsingRecent ? 'Recent' : 'Quick Add'}
                                 </h3>
                             </div>
-
-                            {/* 2-Column Grid — Change #7: Plus icon + press state */}
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                                 {quickAddItems.map((item, idx) => (
                                     <button
                                         key={idx}
                                         onClick={() => handleQuickAdd(item)}
-                                        className={`p-3 rounded-xl text-left border transition-all hover:scale-[1.02] active:scale-95 relative group ${cardBg} ${styles.border} ${
-                                            theme === 'dark' ? 'hover:border-white/20' : 'hover:border-gray-300'
-                                        }`}
-                                        title={`~${item.calories} kcal`}
+                                        className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
+                                        style={{ minWidth: '152px' }}
                                     >
-                                        {/* Change #7: Plus icon in top-right */}
-                                        <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition-all opacity-60 group-hover:opacity-100 ${
-                                            theme === 'dark' ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            <Plus size={12} />
-                                        </div>
-                                        <div className="flex items-center gap-2.5">
-                                            <span className="text-2xl flex-shrink-0">{item.icon || '🍽️'}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`font-bold text-sm truncate ${styles.textMain}`}>{item.name}</p>
-                                                <p className={`text-xs truncate ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[28px]">{item.icon || '🍽️'}</span>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                +
                                             </div>
                                         </div>
-                                        <p className={`text-xs font-semibold mt-1.5 ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>
-                                            ~{item.calories} kcal
-                                        </p>
+                                        <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{item.name}</p>
+                                        <p className={`text-[11px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{item.portion}</p>
+                                        <p className="text-[13px] font-extrabold text-orange-400 mt-1">{item.calories} kcal</p>
                                     </button>
                                 ))}
                             </div>
-
                             {!isUsingRecent && quickAddItems.length > 8 && (
-                                <button className={`w-full mt-3 py-2 text-sm font-medium ${theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'}`}>
+                                <button className={`w-full mt-3 py-2 text-sm font-medium ${isDark ? 'text-[#7ab4ff]' : 'text-blue-600'}`}>
                                     Show more ({(QUICK_ADD_BY_MEAL[activeMeal] || []).length - 8} items)
                                 </button>
                             )}
                         </div>
                     )}
 
-                    {/* Change #5: Removed floating Scan FAB — now inline in action row above */}
                 </div>
             </div>
 
-            {/* Search Overlay (Modal) */}
+            {/* ════ SEARCH OVERLAY ════ */}
             {showSearchOverlay && (
                 <div className={`fixed inset-0 z-[70] flex flex-col ${modalBg} animate-slide-up`}>
                     <div className={`px-6 pt-12 pb-4 ${headerBg}`}>
                         <div className="flex items-center gap-3 mb-4">
-                            <button onClick={() => setShowSearchOverlay(false)} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
+                            <button onClick={() => setShowSearchOverlay(false)} className={`p-2 rounded-full ${isDark ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
                                 <X size={20} className={styles.textSec} />
                             </button>
                             <h2 className={`text-xl font-bold ${styles.textMain}`}>Search Foods</h2>
                         </div>
-
                         <div className="relative">
                             <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
                             <input
@@ -1349,74 +1425,58 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                 <Mic size={20} />
                             </button>
                         </div>
-
-                        {/* Recent Searches */}
                         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
                             {recentSearches.map((term, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => handleSearch(term)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-gray-700'}`}
-                                >
+                                <button key={idx} onClick={() => handleSearch(term)}
+                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${isDark ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-gray-700'}`}>
                                     {term}
                                 </button>
                             ))}
                         </div>
                     </div>
-
                     <div className="flex-1 overflow-y-auto p-4">
-                        {/* Search Results */}
                         {searchResults.length > 0 ? (
                             <div className="space-y-2">
                                 {searchResults.map((item, idx) => (
-                                    <button
-                                        key={idx}
+                                    <button key={idx}
                                         onClick={() => { handleQuickAdd(item); setShowSearchOverlay(false); }}
-                                        className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90`}
-                                    >
+                                        className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90`}>
                                         <div className="flex items-center gap-3">
                                             <span className="text-2xl">{item.icon || '🍽️'}</span>
                                             <div>
                                                 <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
-                                                <p className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                                <p className={`text-sm ${isDark ? 'text-white/40' : 'text-gray-500'}`}>{item.portion}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`font-bold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
+                                            <p className={`font-bold ${isDark ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
                                             <Plus size={16} className={styles.accentBlueText} />
                                         </div>
                                     </button>
                                 ))}
                             </div>
                         ) : selectedCategory ? (
-                            /* Category Items View */
                             <div>
-                                <button
-                                    onClick={() => setSelectedCategory(null)}
-                                    className={`flex items-center gap-2 mb-4 text-sm font-semibold ${theme === 'dark' ? 'text-[#7ab4ff]' : 'text-blue-600'}`}
-                                >
+                                <button onClick={() => setSelectedCategory(null)}
+                                    className={`flex items-center gap-2 mb-4 text-sm font-semibold ${isDark ? 'text-[#7ab4ff]' : 'text-blue-600'}`}>
                                     ← Back to Categories
                                 </button>
-                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
-                                    {selectedCategory}
-                                </h3>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>{selectedCategory}</h3>
                                 <div className="space-y-2">
                                     {(FOOD_BY_CATEGORY[selectedCategory] || []).map((item, idx) => (
-                                        <button
-                                            key={idx}
+                                        <button key={idx}
                                             onClick={() => { handleQuickAdd(item); setShowSearchOverlay(false); }}
-                                            className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90 active:scale-[0.98]`}
-                                        >
+                                            className={`w-full p-4 rounded-2xl text-left flex justify-between items-center ${cardBg} ${styles.border} border transition-colors hover:opacity-90 active:scale-[0.98]`}>
                                             <div className="flex items-center gap-3">
                                                 <span className="text-2xl">{item.icon || '🍽️'}</span>
                                                 <div>
                                                     <p className={`font-bold ${styles.textMain}`}>{item.name}</p>
-                                                    <p className={`text-sm ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{item.portion}</p>
+                                                    <p className={`text-sm ${isDark ? 'text-white/40' : 'text-gray-500'}`}>{item.portion}</p>
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-1">
-                                                <p className={`font-bold ${theme === 'dark' ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
-                                                <div className={`p-1 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
+                                                <p className={`font-bold ${isDark ? 'text-[#4ade80]' : 'text-emerald-600'}`}>{item.calories} kcal</p>
+                                                <div className={`p-1 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
                                                     <Plus size={14} className={styles.accentBlueText} />
                                                 </div>
                                             </div>
@@ -1425,25 +1485,21 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                 </div>
                             </div>
                         ) : searchQuery.length > 0 ? (
-                            <div className={`text-center py-12 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>
+                            <div className={`text-center py-12 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
                                 <Search size={48} className="mx-auto mb-4 opacity-20" />
                                 <p>No results found</p>
                                 <p className="text-sm mt-2">Not in database? Use AI Log to add custom foods</p>
                             </div>
                         ) : (
-                            /* Category Browse */
                             <div>
-                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}`}>Browse by Category</h3>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>Browse by Category</h3>
                                 <div className="grid grid-cols-2 gap-3">
                                     {FOOD_CATEGORIES.map((cat, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => handleCategorySelect(cat.name)}
-                                            className={`p-4 rounded-2xl text-left ${cardBg} ${styles.border} border transition-all hover:scale-[1.02] active:scale-95`}
-                                        >
+                                        <button key={idx} onClick={() => handleCategorySelect(cat.name)}
+                                            className={`p-4 rounded-2xl text-left ${cardBg} ${styles.border} border transition-all hover:scale-[1.02] active:scale-95`}>
                                             <span className="text-2xl mb-2 block">{cat.icon}</span>
                                             <p className={`font-bold ${styles.textMain}`}>{cat.name}</p>
-                                            <p className={`text-xs ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{cat.items} items</p>
+                                            <p className={`text-xs ${isDark ? 'text-white/40' : 'text-gray-500'}`}>{cat.items} items</p>
                                         </button>
                                     ))}
                                 </div>
@@ -1453,7 +1509,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                 </div>
             )}
 
-            {/* Toast Notification */}
+            {/* ════ TOAST ════ */}
             {toast && (
                 <Toast
                     message={toast.message}
