@@ -72,7 +72,7 @@ export const FoodItem = ({ food, theme, onClick }) => {
     return (
         <div
             onClick={() => onClick(food)}
-            className={`p-3.5 flex items-center gap-3.5 rounded-2xl cursor-pointer transition-all active:scale-[0.98] select-none border-l-[3px] ${accent.border} ${theme === 'dark' ? 'bg-[#0f0f0f] border-y border-r border-white/[0.05]' : 'bg-gray-50 border-y border-r border-gray-100'}`}
+            className={`p-3.5 flex items-center gap-3.5 rounded-2xl cursor-pointer transition-all active:scale-[0.98] select-none border-l-[3px] ${accent.border} ${theme === 'dark' ? 'bg-[#0f0f0f] border-y border-r border-white/[0.05]' : theme === 'wooden' ? 'bg-[#EADDCA] border-y border-r border-[#5D4037]/10' : 'bg-gray-50 border-y border-r border-gray-100'}`}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(food); }}
@@ -132,22 +132,22 @@ export const FoodDetailModal = ({ food, theme, onClose, onEdit, onDelete }) => {
                     <button onClick={onClose} className={`p-2 rounded-full transition-colors ${styles.bg} ${styles.textSec}`}><X size={20} /></button>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-8">
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-blue-50 border-blue-100'}`}>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : theme === 'wooden' ? 'bg-[#DBC8B0] border-[#5D4037]/10' : 'bg-blue-50 border-blue-100'}`}>
                         <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`}>Protein</p>
                         <p className={`text-xl font-bold ${styles.textMain}`}>{food.protein}g</p>
                     </div>
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-emerald-50 border-emerald-100'}`}>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : theme === 'wooden' ? 'bg-[#DBC8B0] border-[#5D4037]/10' : 'bg-emerald-50 border-emerald-100'}`}>
                         <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`}>Carbs</p>
                         <p className={`text-xl font-bold ${styles.textMain}`}>{food.carbs}g</p>
                     </div>
-                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : 'bg-orange-50 border-orange-100'}`}>
+                    <div className={`p-4 rounded-2xl text-center border ${theme === 'dark' ? 'bg-[#2C2C2E] border-white/5' : theme === 'wooden' ? 'bg-[#DBC8B0] border-[#5D4037]/10' : 'bg-orange-50 border-orange-100'}`}>
                         <p className={`text-[10px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-orange-400' : 'text-orange-500'}`}>Fat</p>
                         <p className={`text-xl font-bold ${styles.textMain}`}>{food.fat}g</p>
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={() => { onEdit(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-slate-700'}`}><Edit2 size={18} /> Edit</button>
-                    <button onClick={() => { onDelete(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#FF453A]/10 text-[#FF453A]' : 'bg-red-50 text-red-600'}`}><Trash2 size={18} /> Delete</button>
+                    <button onClick={() => { onEdit(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#2C2C2E] text-white' : theme === 'wooden' ? 'bg-[#C19A6B] text-[#3E2723]' : 'bg-gray-100 text-slate-700'}`}><Edit2 size={18} /> Edit</button>
+                    <button onClick={() => { onDelete(food); onClose(); }} className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${theme === 'dark' ? 'bg-[#FF453A]/10 text-[#FF453A]' : theme === 'wooden' ? 'bg-red-100 text-red-600' : 'bg-red-50 text-red-600'}`}><Trash2 size={18} /> Delete</button>
                 </div>
             </div>
         </div>

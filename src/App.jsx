@@ -288,9 +288,14 @@ function MainApp() {
 
             <Suspense fallback={<div className="flex items-center justify-center p-20"><Loader2 className="animate-spin text-purple-500" /></div>}>
                 {currentView === 'diary' && (
-                    <DiaryView 
-                        theme={theme} user={user} 
-                        onDayClick={(day) => { setEditingDay(day); }} 
+                    <DiaryView
+                        theme={theme} user={user}
+                        toggleTheme={() => {
+                            const list = Object.keys(THEMES);
+                            const idx = list.indexOf(theme);
+                            setTheme(list[(idx + 1) % list.length]);
+                        }}
+                        onDayClick={(day) => { setEditingDay(day); }}
                     />
                 )}
             </Suspense>

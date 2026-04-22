@@ -4,7 +4,7 @@ import { THEMES } from '../theme';
 import { storage, auth, db } from '../firebase.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
-import PerformanceReports from './ReportsView.jsx';
+
 import { TARGET_DAY_OPTIONS } from '../config';
 
 const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme, onLogWeight }) => {
@@ -161,10 +161,6 @@ const UserProfileView = ({ user, userStats, onUpdateStats, onLogout, theme, onLo
                     </div>
                 </div>
             )}
-
-            <div className={`mt-8 pt-8 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
-                <PerformanceReports theme={theme} user={user} minimal={false} onLogWeight={onLogWeight} />
-            </div>
 
             {/* Subtle Feedback Footer */}
             <div className={`p-6 rounded-[2.5rem] border border-dashed ${theme === 'dark' ? 'border-white/10 opacity-60 hover:opacity-100' : 'border-gray-200 opacity-80 hover:opacity-100'} transition-opacity`}>

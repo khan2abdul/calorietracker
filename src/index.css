@@ -303,6 +303,137 @@
     }
 }
 
+.grad-text {
+    background: linear-gradient(135deg, #34d399, #0ea5e9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.streak-wrap {
+    position: relative;
+}
+.streak-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: rgba(30,30,30,0.95);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+}
+.streak-wrap:hover .streak-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mood-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.mood-btn:hover {
+    background: rgba(255,255,255,0.1);
+    transform: scale(1.1);
+}
+.mood-btn.selected {
+    background: rgba(52,211,153,0.15);
+    border-color: rgba(52,211,153,0.4);
+    box-shadow: 0 0 12px rgba(52,211,153,0.15);
+}
+
+.note-input {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    resize: none;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+.note-input::placeholder {
+    color: rgba(255,255,255,0.25);
+}
+.note-input:focus {
+    border-color: rgba(52,211,153,0.3);
+    background: rgba(255,255,255,0.05);
+}
+
+.milestone-card {
+    background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(14,165,233,0.08));
+    border: 1px solid rgba(52,211,153,0.15);
+}
+
+.time-pill {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.4);
+    transition: all 0.2s ease;
+}
+.time-pill:hover {
+    background: rgba(255,255,255,0.08);
+}
+.time-pill.active {
+    background: rgba(52,211,153,0.12);
+    border-color: rgba(52,211,153,0.3);
+    color: #34d399;
+}
+
+.chart-filter {
+    background: transparent;
+    border-color: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4);
+}
+.chart-filter.active {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.8);
+}
+
+.heat-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+}
+.heat-none { background: rgba(255,255,255,0.04); }
+.heat-good { background: rgba(52,211,153,0.35); }
+.heat-under { background: rgba(245,158,11,0.35); }
+.heat-over { background: rgba(239,68,68,0.35); }
+
+.nav-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #34d399;
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 6px rgba(52,211,153,0.5);
+}
+
 body {
     margin: 0;
     padding: 0;

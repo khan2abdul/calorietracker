@@ -29,68 +29,6 @@ function useCountUp(end, duration = 1500) {
     return count;
 }
 
-function StatCard({ icon, label, value, unit, color, onClick }) {
-    return (
-        <button onClick={onClick} className={`relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3.5 flex flex-col items-start gap-2 text-left transition-all active:scale-95 ${onClick ? 'cursor-pointer' : ''}`}>
-            <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${color}`} />
-            <div className="text-white/30">{icon}</div>
-            <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/25">{label}</p>
-                <p className="text-lg font-black text-white leading-tight">{value}<span className="text-[10px] font-bold text-white/25 ml-0.5">{unit}</span></p>
-            </div>
-        </button>
-    );
-}
-
-function CalorieRing({ consumed, goal }) {
-    const radius = 90;
-    const circumference = 2 * Math.PI * radius;
-    const percentConsumed = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
-    const remainingCals = Math.max(0, goal - consumed);
-    const animatedRemaining = useCountUp(remainingCals, 1500);
-
-    return (
-        <div className="relative flex flex-col items-center py-3">
-            <div className="relative w-[220px] h-[220px]" style={{ filter: 'drop-shadow(0 0 24px rgba(45,212,191,0.25))' }}>
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 220 220">
-                    <defs>
-                        <linearGradient id="ringTeal" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#2dd4bf" />
-                            <stop offset="100%" stopColor="#14b8a6" />
-                        </linearGradient>
-                    </defs>
-                    <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="16" strokeLinecap="round" />
-                    <motion.circle
-                        cx="110" cy="110" r={radius}
-                        fill="none"
-                        stroke="url(#ringTeal)"
-                        strokeWidth="16"
-                        strokeLinecap="round"
-                        strokeDasharray={circumference}
-                        initial={{ strokeDashoffset: circumference }}
-                        animate={{ strokeDashoffset: circumference * (1 - percentConsumed / 100) }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                    />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <motion.span
-                        className="text-[44px] font-black text-white leading-none tracking-tighter"
-                        animate={{ fontWeight: [700, 900, 700] }}
-                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                        {animatedRemaining}
-                    </motion.span>
-                    <span className="text-[10px] font-bold text-white/30 mt-1 uppercase tracking-[0.15em]">Remaining</span>
-                    <span className="text-[11px] font-bold text-teal-400 mt-1.5">{Math.round(percentConsumed)}% consumed</span>
-                </div>
-            </div>
-            <p className="text-[13px] font-medium text-white/30 mt-4">
-                {Math.round(consumed)} / {Math.round(goal)} kcal goal
-            </p>
-        </div>
-    );
-}
-
 const MEAL_EMOJIS = { Breakfast: '🌅', Lunch: '🍲', Dinner: '🌙', Snacks: '🍎' };
 
 const DashboardPage = ({
@@ -110,6 +48,70 @@ const DashboardPage = ({
         Dinner: false,
         Snacks: false
     });
+
+    /* ─── Theme-aware colors ─── */
+    const isDark = theme === 'dark';
+    const isWooden = theme === 'wooden';
+    const styles = THEMES[theme] || THEMES.dark;
+
+    const tc = useMemo(() => {
+        if (theme === 'dark') {
+            return {
+                bg: '#0a0a0a',
+                headerBg: 'rgba(10,10,10,0.7)',
+                cardBg: 'rgba(255,255,255,0.03)',
+                cardBgSolid: '#111111',
+                pillBg: 'rgba(255,255,255,0.05)',
+                border: 'rgba(255,255,255,0.06)',
+                borderLight: 'rgba(255,255,255,0.03)',
+                textMain: '#ffffff',
+                textSec: 'rgba(255,255,255,0.4)',
+                textMuted: 'rgba(255,255,255,0.25)',
+                textFaint: 'rgba(255,255,255,0.3)',
+                ringTrack: 'rgba(255,255,255,0.04)',
+                barTrack: 'rgba(255,255,255,0.06)',
+                iconColor: 'text-white/40',
+                iconHover: 'text-white/70',
+            };
+        }
+        if (theme === 'wooden') {
+            return {
+                bg: '#C19A6B',
+                headerBg: 'rgba(193,154,107,0.85)',
+                cardBg: 'rgba(234,221,202,0.95)',
+                cardBgSolid: '#EADDCA',
+                pillBg: 'rgba(62,39,35,0.06)',
+                border: 'rgba(62,39,35,0.15)',
+                borderLight: 'rgba(62,39,35,0.08)',
+                textMain: '#3E2723',
+                textSec: 'rgba(62,39,35,0.6)',
+                textMuted: 'rgba(62,39,35,0.4)',
+                textFaint: 'rgba(62,39,35,0.35)',
+                ringTrack: 'rgba(62,39,35,0.1)',
+                barTrack: 'rgba(62,39,35,0.12)',
+                iconColor: 'text-[#3E2723]/40',
+                iconHover: 'text-[#3E2723]/70',
+            };
+        }
+        // light
+        return {
+            bg: '#F2F2F7',
+            headerBg: 'rgba(242,242,247,0.85)',
+            cardBg: '#ffffff',
+            cardBgSolid: '#ffffff',
+            pillBg: 'rgba(0,0,0,0.03)',
+            border: 'rgba(0,0,0,0.08)',
+            borderLight: 'rgba(0,0,0,0.04)',
+            textMain: '#0f172a',
+            textSec: 'rgba(0,0,0,0.5)',
+            textMuted: 'rgba(0,0,0,0.35)',
+            textFaint: 'rgba(0,0,0,0.3)',
+            ringTrack: 'rgba(0,0,0,0.06)',
+            barTrack: 'rgba(0,0,0,0.08)',
+            iconColor: 'text-slate-900/40',
+            iconHover: 'text-slate-900/70',
+        };
+    }, [theme]);
 
     useEffect(() => {
         if (!auth.currentUser) return;
@@ -153,8 +155,6 @@ const DashboardPage = ({
             return (activity.duration || 0) + ' min';
         }
     };
-
-    const styles = THEMES[theme] || THEMES.dark;
 
     const estimateDate = useMemo(() => {
         if (!userStats.targetWeight || !userStats.weight || !userStats.startDate) return null;
@@ -224,8 +224,70 @@ const DashboardPage = ({
 
     const isToday = new Date().toDateString() === currentDate.toDateString();
 
+    /* ─── Sub-components with theme awareness ─── */
+    const StatCard = ({ icon, label, value, unit, color, onClick }) => (
+        <button onClick={onClick} className="relative overflow-hidden rounded-2xl p-3.5 flex flex-col items-start gap-2 text-left transition-all active:scale-95" style={{ backgroundColor: tc.cardBg, border: `1px solid ${tc.border}` }}>
+            <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${color}`} />
+            <div style={{ color: tc.textFaint }}>{icon}</div>
+            <div>
+                <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: tc.textMuted }}>{label}</p>
+                <p className="text-lg font-black leading-tight" style={{ color: tc.textMain }}>{value}<span className="text-[10px] font-bold ml-0.5" style={{ color: tc.textMuted }}>{unit}</span></p>
+            </div>
+        </button>
+    );
+
+    const CalorieRing = ({ consumed, goal }) => {
+        const radius = 90;
+        const circumference = 2 * Math.PI * radius;
+        const percentConsumed = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
+        const remainingCals = Math.max(0, goal - consumed);
+        const animatedRemaining = useCountUp(remainingCals, 1500);
+
+        return (
+            <div className="relative flex flex-col items-center py-3">
+                <div className="relative w-[220px] h-[220px]" style={{ filter: 'drop-shadow(0 0 24px rgba(45,212,191,0.25))' }}>
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 220 220">
+                        <defs>
+                            <linearGradient id="ringTeal" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#2dd4bf" />
+                                <stop offset="100%" stopColor="#14b8a6" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="110" cy="110" r={radius} fill="none" stroke={tc.ringTrack} strokeWidth="16" strokeLinecap="round" />
+                        <motion.circle
+                            cx="110" cy="110" r={radius}
+                            fill="none"
+                            stroke="url(#ringTeal)"
+                            strokeWidth="16"
+                            strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            initial={{ strokeDashoffset: circumference }}
+                            animate={{ strokeDashoffset: circumference * (1 - percentConsumed / 100) }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <motion.span
+                            className="text-[44px] font-black leading-none tracking-tighter"
+                            style={{ color: tc.textMain }}
+                            animate={{ fontWeight: [700, 900, 700] }}
+                            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                            {animatedRemaining}
+                        </motion.span>
+                        <span className="text-[10px] font-bold mt-1 uppercase tracking-[0.15em]" style={{ color: tc.textFaint }}>Remaining</span>
+                        <span className="text-[11px] font-bold text-teal-400 mt-1.5">{Math.round(percentConsumed)}% consumed</span>
+                    </div>
+                </div>
+                <p className="text-[13px] font-medium mt-4" style={{ color: tc.textFaint }}>
+                    {Math.round(consumed)} / {Math.round(goal)} kcal goal
+                </p>
+            </div>
+        );
+    };
+
     return (
-        <div className="flex flex-col pb-32 animate-fade-in relative" style={{ backgroundColor: '#0a0a0a', maxWidth: '430px', margin: '0 auto' }}>
+        <div className={`flex flex-col pb-32 animate-fade-in relative ${styles.bg}`} style={{ maxWidth: '430px', margin: '0 auto' }}>
             {/* Noise texture overlay */}
             <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.02]" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
@@ -237,48 +299,31 @@ const DashboardPage = ({
                 right: '0'
             }} />
 
-            {/* Top Nav Bar */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0a0a]/70 border-b border-white/5 px-5 py-3.5 flex items-center justify-between">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-xs font-black text-black">
-                    {userName.charAt(0).toUpperCase()}
-                </div>
-                <div className="absolute left-1/2 -translate-x-1/2">
-                    <span className="text-[15px] font-black tracking-tight text-teal-400">CalTrack</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button className="relative">
-                        <Bell size={20} className="text-white/40 hover:text-white/70 transition-colors" />
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-[#0a0a0a]" />
-                    </button>
-                    <button onClick={toggleTheme} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors">
-                        {theme === 'light' ? <Sun size={15} className="text-white/60" /> : (theme === 'dark' ? <Moon size={15} className="text-white/60" /> : <TreeDeciduous size={15} className="text-white/60" />)}
-                    </button>
-                </div>
-            </header>
-
             <div className="px-5 pt-5 pb-2 relative z-10 space-y-5">
-                {/* Date Navigator */}
-                <div className="flex items-center justify-center">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => changeDate(-1)} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                            <ChevronLeft size={16} className="text-white/40" />
-                        </button>
-                        <motion.div 
-                            key={currentDate.toDateString()}
-                            initial={{ scale: 0.9, opacity: 0.5 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                            className="min-w-[150px] text-center px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10"
-                        >
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{isToday ? 'Today' : currentDate.toLocaleDateString('en-US', { weekday: 'long' })}</p>
-                            <p className="text-[13px] font-black text-white mt-0.5">
-                                {isToday ? new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase() : currentDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
-                            </p>
-                        </motion.div>
-                        <button onClick={() => changeDate(1)} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                            <ChevronRight size={16} className="text-white/40" />
-                        </button>
-                    </div>
+                {/* Date Navigator + Theme Toggle */}
+                <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => changeDate(-1)} className="w-9 h-9 flex items-center justify-center rounded-full transition-colors hover:opacity-80 active:scale-90" style={{ backgroundColor: tc.pillBg, border: `1px solid ${tc.border}` }}>
+                        <ChevronLeft size={16} style={{ color: tc.textMain, opacity: 0.4 }} />
+                    </button>
+                    <motion.div
+                        key={currentDate.toDateString()}
+                        initial={{ scale: 0.9, opacity: 0.5 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        className="min-w-[150px] text-center px-5 py-2.5 rounded-2xl"
+                        style={{ backgroundColor: tc.pillBg, border: `1px solid ${tc.border}` }}
+                    >
+                        <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: tc.textSec }}>{isToday ? 'Today' : currentDate.toLocaleDateString('en-US', { weekday: 'long' })}</p>
+                        <p className="text-[13px] font-black mt-0.5" style={{ color: tc.textMain }}>
+                            {isToday ? new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase() : currentDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
+                        </p>
+                    </motion.div>
+                    <button onClick={() => changeDate(1)} className="w-9 h-9 flex items-center justify-center rounded-full transition-colors hover:opacity-80 active:scale-90" style={{ backgroundColor: tc.pillBg, border: `1px solid ${tc.border}` }}>
+                        <ChevronRight size={16} style={{ color: tc.textMain, opacity: 0.4 }} />
+                    </button>
+                    <button onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:opacity-80 active:scale-90" style={{ backgroundColor: tc.pillBg, border: `1px solid ${tc.border}` }}>
+                        {theme === 'light' ? <Sun size={15} style={{ color: tc.textMain, opacity: 0.6 }} /> : (theme === 'dark' ? <Moon size={15} style={{ color: tc.textMain, opacity: 0.6 }} /> : <TreeDeciduous size={15} style={{ color: tc.textMain, opacity: 0.6 }} />)}
+                    </button>
                 </div>
 
                 {/* Greeting Block */}
@@ -290,9 +335,10 @@ const DashboardPage = ({
 
                 {/* Goal Card */}
                 {userStats.targetWeight && (
-                    <motion.div 
-                        className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-md border border-white/[0.06] p-4"
+                    <motion.div
+                        className="relative overflow-hidden rounded-2xl backdrop-blur-md p-4"
                         whileTap={{ scale: 0.98 }}
+                        style={{ backgroundColor: tc.cardBg, border: `1px solid ${tc.border}` }}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3.5">
@@ -300,18 +346,18 @@ const DashboardPage = ({
                                     <TrendingUp size={20} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/35">Estimated Goal Date</p>
-                                    <p className="text-[15px] font-black text-white mt-0.5">Reach <span className="text-emerald-400">{userStats.targetWeight}kg</span></p>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: tc.textMuted }}>Estimated Goal Date</p>
+                                    <p className="text-[15px] font-black mt-0.5" style={{ color: tc.textMain }}>Reach <span className="text-emerald-400">{userStats.targetWeight}kg</span></p>
                                 </div>
                             </div>
                             <div className="text-right">
                                 {parsedEstimate ? (
                                     <>
-                                        <p className="text-[18px] font-black text-white leading-none">{parsedEstimate.monthDay}</p>
-                                        <p className="text-[11px] font-bold text-white/30 mt-0.5">{parsedEstimate.year}</p>
+                                        <p className="text-[18px] font-black leading-none" style={{ color: tc.textMain }}>{parsedEstimate.monthDay}</p>
+                                        <p className="text-[11px] font-bold mt-0.5" style={{ color: tc.textFaint }}>{parsedEstimate.year}</p>
                                     </>
                                 ) : (
-                                    <p className="text-[18px] font-black text-white/40">--</p>
+                                    <p className="text-[18px] font-black" style={{ color: tc.textFaint }}>--</p>
                                 )}
                             </div>
                         </div>
@@ -319,8 +365,8 @@ const DashboardPage = ({
                 )}
 
                 {/* Circular Progress Ring */}
-                <CalorieRing 
-                    consumed={totals.cals} 
+                <CalorieRing
+                    consumed={totals.cals}
                     goal={goal}
                 />
 
@@ -329,6 +375,33 @@ const DashboardPage = ({
                     <StatCard icon={<Utensils size={16} />} label="Eaten" value={String(Math.round(totals.cals))} unit="kcal" color="bg-emerald-500" />
                     <StatCard icon={<Flame size={16} />} label="Burned" value={String(Math.round(totalBurned))} unit="kcal" color="bg-orange-500" />
                     <StatCard icon={<Droplets size={16} />} label="Water" value={String((waterConsumed / 1000).toFixed(1))} unit="L" color="bg-blue-500" onClick={() => setShowWaterModal(true)} />
+                </div>
+
+                {/* Daily Macros Summary */}
+                <div className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: tc.cardBg, border: `1px solid ${tc.border}` }}>
+                    <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: tc.textMuted }}>Daily Macros</p>
+                        <p className="text-[10px] font-bold" style={{ color: tc.textFaint }}>{Math.round(totals.pro + totals.carb + totals.fat)}g total</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                            { label: 'Protein', val: totals.pro, goal: macroGoals.pro, color: 'bg-blue-500', text: 'text-blue-400' },
+                            { label: 'Carbs', val: totals.carb, goal: macroGoals.carb, color: 'bg-emerald-500', text: 'text-emerald-400' },
+                            { label: 'Fat', val: totals.fat, goal: macroGoals.fat, color: 'bg-orange-500', text: 'text-orange-400' },
+                        ].map(m => {
+                            const pct = m.goal > 0 ? Math.min((m.val / m.goal) * 100, 100) : 0;
+                            return (
+                                <div key={m.label} className="flex flex-col items-center gap-1.5 p-2 rounded-xl" style={{ backgroundColor: tc.pillBg }}>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: tc.textMuted }}>{m.label}</span>
+                                    <span className={`text-sm font-black ${m.text}`}>{Math.round(m.val)}g</span>
+                                    <div className="w-full h-1 rounded-full overflow-hidden" style={{ backgroundColor: tc.barTrack }}>
+                                        <div className={`h-full rounded-full ${m.color} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className="text-[9px] font-bold" style={{ color: tc.textFaint }}>{Math.round(pct)}%</span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
@@ -350,72 +423,72 @@ const DashboardPage = ({
                     const fGoalPct = macroGoals.fat > 0 ? Math.min((mealStats.fat / macroGoals.fat) * 100, 100) : 0;
 
                     return (
-                        <div key={meal} className="rounded-[1.25rem] border border-white/[0.06] bg-[#111111] overflow-hidden transition-all">
+                        <div key={meal} className="rounded-[1.25rem] overflow-hidden transition-all" style={{ backgroundColor: tc.cardBgSolid, border: `1px solid ${tc.border}` }}>
                             {/* Meal Header */}
                             <div 
                                 className="p-4 flex justify-between items-center cursor-pointer active:scale-[0.995] transition-transform"
                                 onClick={() => setExpandedMeals(prev => ({ ...prev, [meal]: !prev[meal] }))}
                             >
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xl shrink-0">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: tc.pillBg }}>
                                         {MEAL_EMOJIS[meal]}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <h3 className="text-[15px] font-bold text-white">{meal}</h3>
+                                            <h3 className="text-[15px] font-bold" style={{ color: tc.textMain }}>{meal}</h3>
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className="text-[11px] font-bold text-emerald-400">{Math.round(mealCals)} kcal</span>
-                                            <span className="text-[11px] font-medium text-white/25">· {mealPct}% of daily goal</span>
+                                            <span className="text-[11px] font-medium" style={{ color: tc.textMuted }}>· {mealPct}% of daily goal</span>
                                         </div>
                                         {/* Macro bars */}
                                         <div className="mt-2.5 space-y-1.5">
                                             <div className="flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                                                <span className="text-[10px] font-bold text-white/40 w-11 shrink-0">Protein</span>
-                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-white/[0.06]">
+                                                <span className="text-[10px] font-bold w-11 shrink-0" style={{ color: tc.textSec }}>Protein</span>
+                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: tc.barTrack }}>
                                                     <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${pGoalPct}%` }} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-white/50 w-7 text-right shrink-0">{Math.round(mealStats.pro)}g</span>
+                                                <span className="text-[10px] font-bold w-7 text-right shrink-0" style={{ color: tc.textFaint }}>{Math.round(mealStats.pro)}g</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                                                <span className="text-[10px] font-bold text-white/40 w-11 shrink-0">Carbs</span>
-                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-white/[0.06]">
+                                                <span className="text-[10px] font-bold w-11 shrink-0" style={{ color: tc.textSec }}>Carbs</span>
+                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: tc.barTrack }}>
                                                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${cGoalPct}%` }} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-white/50 w-7 text-right shrink-0">{Math.round(mealStats.carb)}g</span>
+                                                <span className="text-[10px] font-bold w-7 text-right shrink-0" style={{ color: tc.textFaint }}>{Math.round(mealStats.carb)}g</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                                                <span className="text-[10px] font-bold text-white/40 w-11 shrink-0">Fat</span>
-                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-white/[0.06]">
+                                                <span className="text-[10px] font-bold w-11 shrink-0" style={{ color: tc.textSec }}>Fat</span>
+                                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: tc.barTrack }}>
                                                     <div className="h-full bg-orange-500 rounded-full transition-all duration-500" style={{ width: `${fGoalPct}%` }} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-white/50 w-7 text-right shrink-0">{Math.round(mealStats.fat)}g</span>
+                                                <span className="text-[10px] font-bold w-7 text-right shrink-0" style={{ color: tc.textFaint }}>{Math.round(mealStats.fat)}g</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="ml-3 shrink-0">
-                                    {isExpanded ? <ChevronUp size={18} className="text-white/30" /> : <ChevronDown size={18} className="text-white/30" />}
+                                    {isExpanded ? <ChevronUp size={18} style={{ color: tc.textFaint }} /> : <ChevronDown size={18} style={{ color: tc.textFaint }} />}
                                 </div>
                             </div>
 
                             {/* Expanded Content */}
                             {isExpanded && (
-                                <div className="px-4 pb-4 animate-fade-in border-t border-white/[0.03] pt-3" onClick={(e) => e.stopPropagation()}>
+                                <div className="px-4 pb-4 animate-fade-in pt-3" style={{ borderTop: `1px solid ${tc.borderLight}` }} onClick={(e) => e.stopPropagation()}>
                                     <div className="space-y-2.5">
                                         {logs[meal].length > 0 ? (
                                             logs[meal].map((food) => (
                                                 <FoodItem key={food.uid} food={food} theme={theme} onClick={onFoodClick} />
                                             ))
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-24 gap-2 border-2 border-dashed rounded-2xl cursor-pointer hover:opacity-80 active:scale-95 transition border-white/[0.04] bg-white/[0.02]" onClick={() => onAddClick(meal, 'food')}>
-                                                <div className="p-2 rounded-full bg-white/5">
-                                                    <Plus size={18} className="text-white/30" />
+                                            <div className="flex flex-col items-center justify-center h-24 gap-2 border-2 border-dashed rounded-2xl cursor-pointer hover:opacity-80 active:scale-95 transition" style={{ borderColor: tc.border, backgroundColor: tc.pillBg }} onClick={() => onAddClick(meal, 'food')}>
+                                                <div className="p-2 rounded-full" style={{ backgroundColor: tc.pillBg }}>
+                                                    <Plus size={18} style={{ color: tc.textMain, opacity: 0.3 }} />
                                                 </div>
-                                                <span className="text-xs font-bold text-white/40">Tap to log {meal}</span>
+                                                <span className="text-xs font-bold" style={{ color: tc.textSec }}>Tap to log {meal}</span>
                                             </div>
                                         )}
                                     </div>
