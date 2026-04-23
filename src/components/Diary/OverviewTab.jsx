@@ -8,15 +8,18 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
     const firstDayIndex = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1).getDay();
     const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate();
 
-    // Today's data
-    const todayLog = history.find(h => h.date === todayStr);
-    const todayCals = Math.round(todayLog?.totals?.cals || 0);
-    const todayBurned = Math.round(todayLog?.burned || 0);
-    const todayRemaining = Math.max(0, G_CALS - todayCals);
-    const todayPro = Math.round(todayLog?.totals?.pro || 0);
-    const todayCarb = Math.round(todayLog?.totals?.carb || 0);
-    const todayFat = Math.round(todayLog?.totals?.fat || 0);
-    const todayWater = todayLog?.waterIntake || 0;
+    // Selected day state (defaults to today)
+    const [selectedDayStr, setSelectedDayStr] = useState(todayStr);
+
+    // Derive display data from selected day
+    const displayLog = history.find(h => h.date === selectedDayStr) || {};
+    const displayCals = Math.round(displayLog?.totals?.cals || 0);
+    const displayBurned = Math.round(displayLog?.burned || 0);
+    const displayRemaining = Math.max(0, G_CALS - displayCals);
+    const displayPro = Math.round(displayLog?.totals?.pro || 0);
+    const displayCarb = Math.round(displayLog?.totals?.carb || 0);
+    const displayFat = Math.round(displayLog?.totals?.fat || 0);
+    const displayWater = displayLog?.waterIntake || 0;
 
     // Date strip: 7 days around today
     const dateStrip = useMemo(() => {
@@ -36,8 +39,8 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
     // Ring SVG math
     const radius = 50;
     const circumference = 2 * Math.PI * radius;
-    const eatenPct = Math.min(todayCals / G_CALS, 1);
-    const burnedPct = Math.min(todayBurned / G_CALS, 1);
+    const eatenPct = Math.min(displayCals / G_CALS, 1);
+    const burnedPct = Math.min(displayBurned / G_CALS, 1);
     const eatenOffset = circumference * (1 - eatenPct);
     const burnedOffset = circumference * (1 - burnedPct);
 
@@ -68,8 +71,8 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
         return { daysLogged: loggedDays.length, totalDays: end.getDate(), avgCalories: avg, overGoalDays: over, bestDay, worstDay, totalCals, consistency };
     }, [history, activeMonth, G_CALS]);
 
-    const getCellStyle = (cals, isToday) => {
-        if (isToday) return { background: 'linear-gradient(135deg, rgba(52,211,153,0.55), rgba(34,211,238,0.4))', color: 'rgba(255,255,255,0.9)', outline: '2px solid #34d399', outlineOffset: '2px' };
+    const getCellStyle = (cals, isToday, isSelected) => {
+        if (isSelected) return { background: 'linear-gradient(135deg, rgba(52,211,153,0.55), rgba(34,211,238,0.4))', color: 'rgba(255,255,255,0.9)', outline: '2px solid #34d399', outlineOffset: '2px' };
         if (cals === 0) return { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' };
         if (cals > G_CALS) return { backgroundColor: 'rgba(249,115,22,0.4)', color: 'rgba(255,255,255,0.9)' };
         return { background: 'linear-gradient(135deg, rgba(52,211,153,0.55), rgba(34,211,238,0.4))', color: 'rgba(255,255,255,0.9)' };
@@ -80,14 +83,14 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
         : 'bg-white border border-black/[0.08]';
 
     const macroData = [
-        { label: 'Protein', value: todayPro, color: '#60a5fa', bg: 'rgba(96,165,250,0.15)', pct: Math.min((todayPro / 120) * 100, 100) },
-        { label: 'Carbs', value: todayCarb, color: '#34d399', bg: 'rgba(52,211,153,0.15)', pct: Math.min((todayCarb / 250) * 100, 100) },
-        { label: 'Fat', value: todayFat, color: '#fb923c', bg: 'rgba(251,146,60,0.15)', pct: Math.min((todayFat / 80) * 100, 100) },
+        { label: 'Protein', value: displayPro, color: '#60a5fa', bg: 'rgba(96,165,250,0.15)', pct: Math.min((displayPro / 120) * 100, 100) },
+        { label: 'Carbs', value: displayCarb, color: '#34d399', bg: 'rgba(52,211,153,0.15)', pct: Math.min((displayCarb / 250) * 100, 100) },
+        { label: 'Fat', value: displayFat, color: '#fb923c', bg: 'rgba(251,146,60,0.15)', pct: Math.min((displayFat / 80) * 100, 100) },
         { label: 'Fiber', value: 0, color: '#a855f7', bg: 'rgba(168,85,247,0.15)', pct: 0 },
     ];
 
     const waterGoal = 8;
-    const waterPct = Math.min((todayWater / waterGoal) * 100, 100);
+    const waterPct = Math.min((displayWater / waterGoal) * 100, 100);
 
     return (
         <div className="space-y-5">
@@ -111,25 +114,42 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                     </button>
                 </div>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                    {dateStrip.map((d, idx) => (
-                        <button
-                            key={idx}
-                            className="flex flex-col items-center gap-1 py-2 px-3 rounded-2xl transition-all min-w-[48px]"
-                            style={d.isToday
-                                ? { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)' }
-                                : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }
-                            }
-                        >
-                            <span className="text-[10px] font-semibold" style={{ color: d.isToday ? '#34d399' : tc.textFaint }}>{d.label}</span>
-                            <span className="text-base font-extrabold" style={{ color: d.isToday ? '#fff' : tc.textMain }}>{d.date}</span>
-                            {d.isToday && <div className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />}
-                        </button>
-                    ))}
+                    {dateStrip.map((d, idx) => {
+                        const isSelected = d.dateStr === selectedDayStr;
+                        return (
+                            <button
+                                key={idx}
+                                onClick={() => setSelectedDayStr(d.dateStr)}
+                                className="flex flex-col items-center gap-1 py-2 px-3 rounded-2xl transition-all min-w-[48px]"
+                                style={isSelected
+                                    ? { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)' }
+                                    : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }
+                                }
+                            >
+                                <span className="text-[10px] font-semibold" style={{ color: isSelected ? '#34d399' : tc.textFaint }}>{d.label}</span>
+                                <span className="text-base font-extrabold" style={{ color: isSelected ? '#fff' : tc.textMain }}>{d.date}</span>
+                                {isSelected && <div className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* ══ CALORIE RING + STATS ══ */}
             <div className={`rounded-[28px] p-6 ${glassCard}`}>
+                <div className="flex items-center justify-between mb-4">
+                    <p className="text-[13px] font-bold" style={{ color: tc.textMain }}>
+                        {selectedDayStr === todayStr ? 'Today' : new Date(selectedDayStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                    </p>
+                    {selectedDayStr !== todayStr && (
+                        <button
+                            onClick={() => setSelectedDayStr(todayStr)}
+                            className="text-[11px] font-bold text-emerald-400 hover:opacity-80 transition"
+                        >
+                            Back to today
+                        </button>
+                    )}
+                </div>
                 <div className="flex items-center gap-6">
                     {/* Ring */}
                     <div className="relative shrink-0" style={{ width: '120px', height: '120px' }}>
@@ -152,7 +172,7 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                                 style={{ opacity: 0.7 }} />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <p className="text-[22px] font-black leading-none" style={{ color: tc.textMain }}>{todayRemaining}</p>
+                            <p className="text-[22px] font-black leading-none" style={{ color: tc.textMain }}>{displayRemaining}</p>
                             <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>left</p>
                         </div>
                     </div>
@@ -171,19 +191,19 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                         <div>
                             <div className="flex justify-between mb-1">
                                 <span className="text-xs font-semibold" style={{ color: tc.textMuted }}>Eaten</span>
-                                <span className="text-xs font-extrabold text-emerald-400">{todayCals} kcal</span>
+                                <span className="text-xs font-extrabold text-emerald-400">{displayCals} kcal</span>
                             </div>
                             <div className="h-1 rounded-full overflow-hidden" style={{ background: tc.ringTrack }}>
-                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min((todayCals / G_CALS) * 100, 100)}%` }} />
+                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min((displayCals / G_CALS) * 100, 100)}%` }} />
                             </div>
                         </div>
                         <div>
                             <div className="flex justify-between mb-1">
                                 <span className="text-xs font-semibold" style={{ color: tc.textMuted }}>Burned</span>
-                                <span className="text-xs font-extrabold text-orange-400">{todayBurned} kcal</span>
+                                <span className="text-xs font-extrabold text-orange-400">{displayBurned} kcal</span>
                             </div>
                             <div className="h-1 rounded-full overflow-hidden" style={{ background: tc.ringTrack }}>
-                                <div className="h-full rounded-full" style={{ width: `${Math.min((todayBurned / G_CALS) * 100, 100)}%`, background: 'linear-gradient(90deg, #f97316, #fb923c)' }} />
+                                <div className="h-full rounded-full" style={{ width: `${Math.min((displayBurned / G_CALS) * 100, 100)}%`, background: 'linear-gradient(90deg, #f97316, #fb923c)' }} />
                             </div>
                         </div>
                     </div>
@@ -213,7 +233,7 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                         <span className="text-[22px]">💧</span>
                         <div>
                             <p className="text-sm font-bold" style={{ color: tc.textMain }}>Water Intake</p>
-                            <p className="text-xs" style={{ color: tc.textFaint }}>{todayWater} of {waterGoal} glasses · {todayWater * 250}ml</p>
+                            <p className="text-xs" style={{ color: tc.textFaint }}>{displayWater} of {waterGoal} glasses · {displayWater * 250}ml</p>
                         </div>
                     </div>
                     <div className="text-right">
@@ -230,12 +250,12 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                             key={i}
                             className="w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all"
                             style={{
-                                background: i < todayWater ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
-                                border: i < todayWater ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                                color: i < todayWater ? '#38bdf8' : tc.textFaint
+                                background: i < displayWater ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
+                                border: i < displayWater ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                                color: i < displayWater ? '#38bdf8' : tc.textFaint
                             }}
                         >
-                            {i < todayWater ? '💧' : '○'}
+                            {i < displayWater ? '💧' : '○'}
                         </div>
                     ))}
                 </div>
@@ -246,15 +266,15 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                 <p className="text-sm font-bold mb-3" style={{ color: tc.textMain }}>Daily Summary</p>
                 <div className="flex gap-2.5">
                     <div className={`flex-1 rounded-[20px] p-4 text-center ${glassCard}`} style={{ borderTop: '2px solid rgba(52,211,153,0.4)' }}>
-                        <p className="text-[22px] font-black text-emerald-400">{todayCals}</p>
+                        <p className="text-[22px] font-black text-emerald-400">{displayCals}</p>
                         <p className="text-[10px] font-semibold mt-1" style={{ color: tc.textFaint }}>Eaten kcal</p>
                     </div>
                     <div className={`flex-1 rounded-[20px] p-4 text-center ${glassCard}`} style={{ borderTop: '2px solid rgba(249,115,22,0.4)' }}>
-                        <p className="text-[22px] font-black text-orange-400">{todayBurned}</p>
+                        <p className="text-[22px] font-black text-orange-400">{displayBurned}</p>
                         <p className="text-[10px] font-semibold mt-1" style={{ color: tc.textFaint }}>Burned kcal</p>
                     </div>
                     <div className={`flex-1 rounded-[20px] p-4 text-center ${glassCard}`} style={{ borderTop: '2px solid rgba(56,189,248,0.4)' }}>
-                        <p className="text-[22px] font-black text-sky-400">{todayRemaining}</p>
+                        <p className="text-[22px] font-black text-sky-400">{displayRemaining}</p>
                         <p className="text-[10px] font-semibold mt-1" style={{ color: tc.textFaint }}>Remaining</p>
                     </div>
                 </div>
@@ -288,15 +308,19 @@ const OverviewTab = ({ history, activeMonth, setActiveMonth, todayStr, G_CALS, t
                         const dObj = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), dateNum);
                         const dStr = getLocalDateStr(dObj);
                         const isToday = dStr === todayStr;
+                        const isSelected = dStr === selectedDayStr;
 
                         const dayStats = history.find(h => h.date === dStr);
                         const cals = Math.round(dayStats?.totals?.cals || 0);
-                        const style = getCellStyle(cals, isToday);
+                        const style = getCellStyle(cals, isToday, isSelected);
 
                         return (
                             <button
                                 key={`day-${dateNum}`}
-                                onClick={() => onDayClick && onDayClick({ dateObj: dObj, stats: dayStats })}
+                                onClick={() => {
+                                    setSelectedDayStr(dStr);
+                                    if (onDayClick) onDayClick({ dateObj: dObj, stats: dayStats });
+                                }}
                                 className="aspect-square rounded-md flex items-center justify-center text-[9px] font-bold transition-all duration-200 active:scale-90 hover:scale-110"
                                 style={style}
                             >

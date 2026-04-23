@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase.js';
 import { collection, query, onSnapshot, where, doc } from 'firebase/firestore';
-import { Bell, Moon, Sun, TreeDeciduous, Plus } from 'lucide-react';
+
 import { getLocalDateStr } from '../utils';
 import { THEMES } from '../theme';
 import OverviewTab from './Diary/OverviewTab';
@@ -185,40 +185,11 @@ const DiaryView = ({ theme, user, toggleTheme, onDayClick }) => {
                 right: '0'
             }} />
 
-            {/* ══ TOP NAV ══ */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl border-b px-5 py-3 flex items-center justify-between" style={{ backgroundColor: tc.headerBg, borderColor: tc.glassBorder }}>
-                <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-sm font-extrabold text-black shadow-lg">
-                        {userName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: tc.textSec }}>{userName}</span>
-                </div>
-                <span className="text-base font-extrabold tracking-tight" style={{ color: tc.textMain }}>CalTrack</span>
-                <div className="flex items-center gap-3.5">
-                    <button className="relative transition-colors hover:opacity-80" style={{ color: tc.textFaint }}>
-                        <Bell size={20} />
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2" style={{ borderColor: tc.bg }} />
-                    </button>
-                    <button onClick={toggleTheme} className="transition-colors hover:opacity-80" style={{ color: tc.textFaint }}>
-                        {theme === 'light' ? <Sun size={20} /> : (theme === 'dark' ? <Moon size={20} /> : <TreeDeciduous size={20} />)}
-                    </button>
-                </div>
-            </header>
-
             <div className="px-4 pt-5 pb-2 relative z-10 space-y-5">
                 {/* ══ HEADER ══ */}
                 <div>
-                    <p className="text-[11px] font-bold tracking-[0.12em] uppercase mb-1.5" style={{ color: tc.textMuted }}>Your Food Diary</p>
-                    <div className="flex items-end justify-between">
-                        <h1 className="text-[34px] font-black leading-none" style={{ color: tc.textMain }}>Diary 📒</h1>
-                        <button
-                            onClick={() => { /* Navigate to add food */ }}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all"
-                            style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399' }}
-                        >
-                            <Plus size={14} strokeWidth={3} /> Add food
-                        </button>
-                    </div>
+                    <h1 className="text-[28px] font-black leading-tight" style={{ color: tc.textMain }}>Diary</h1>
+                    <p className="text-sm mt-0.5" style={{ color: tc.textMuted }}>Your Journey</p>
                 </div>
 
                 {/* ══ TAB SWITCHER ══ */}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import ManualLogSheet from '../components/workout/ManualLogSheet';
 import ConfirmModal from '../components/ConfirmModal';
 import { useWorkoutHistory, activityEmoji, formatSessionDate } from '../hooks/useWorkoutHistory';
-import { Trash2, Edit2, Bell, Moon, X } from 'lucide-react';
+import { Trash2, Edit2 } from 'lucide-react';
 import { THEMES } from '../theme';
 
 const QUICK_ACTIVITIES = [
@@ -25,9 +25,11 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
     const [quickLogActivity, setQuickLogActivity] = useState(null);
 
     const {
-        sessions, loading, loadingMore, hasMore,
+        sessions, allSessions, loading, loadingMore, hasMore,
         loadMore, deleteSession, weeklyStats, weeklyLoading
     } = useWorkoutHistory();
+
+    const [selectedDayIndex, setSelectedDayIndex] = useState(null);
 
     // Compute week number
     const weekNumber = useMemo(() => {
@@ -36,6 +38,44 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
         const diff = now - start + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
         return Math.ceil(diff / (86400000 * 7));
     }, []);
+
+    // Compute this week's sessions by day (Mon=0 ... Sun=6)
+    const weekDays = useMemo(() => {
+        const now = new Date();
+        const currentDay = now.getDay(); // 0=Sun, 1=Mon...
+        const mondayOffset = currentDay === 0 ? -6 : 1;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - currentDay + (currentDay === 0 ? -6 : 1));
+        weekStart.setHours(0, 0, 0, 0);
+
+        const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(weekStart);
+            d.setDate(weekStart.getDate() + i);
+            const startTime = d.getTime();
+            d.setHours(23, 59, 59, 999);
+            const endTime = d.getTime();
+
+            // Find best session for this day (most calories)
+            const daySessions = (allSessions || []).filter(s => {
+                const t = s.date?.toMillis ? s.date.toMillis() : 0;
+                return t >= startTime && t <= endTime;
+            });
+
+            const bestSession = daySessions.length
+                ? daySessions.reduce((a, b) => (a.caloriesBurned > b.caloriesBurned ? a : b))
+                : null;
+
+            return {
+                date: new Date(weekStart.getTime() + i * 86400000),
+                session: bestSession,
+                totalCals: daySessions.reduce((sum, s) => sum + (s.caloriesBurned || 0), 0),
+                totalDuration: daySessions.reduce((sum, s) => sum + (s.duration || 0), 0),
+                totalKm: daySessions.reduce((sum, s) => sum + (s.distance || 0), 0),
+                count: daySessions.length
+            };
+        });
+        return days;
+    }, [allSessions]);
 
     // Compute personal records from sessions
     const records = useMemo(() => {
@@ -79,23 +119,6 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
 
     return (
         <div className={`min-h-screen pb-28 overflow-y-auto ${styles.bg}`}>
-            {/* ══ TOP NAV ══ */}
-            <div className={`sticky top-0 z-50 px-5 py-3 flex items-center justify-between ${isDark ? 'bg-black/80 backdrop-blur-xl border-b border-white/5' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
-                <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center font-bold text-sm shadow-lg text-white">K</div>
-                    <span className={`text-sm font-semibold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Kadir</span>
-                </div>
-                <span className={`font-extrabold text-base tracking-tight ${styles.textMain}`}>CalTrack</span>
-                <div className="flex gap-3.5">
-                    <button className={`${isDark ? 'text-white/35' : 'text-gray-400'} hover:opacity-80 transition`}>
-                        <Bell size={20} />
-                    </button>
-                    <button className={`${isDark ? 'text-white/35' : 'text-gray-400'} hover:opacity-80 transition`}>
-                        <Moon size={20} />
-                    </button>
-                </div>
-            </div>
-
             <div className="max-w-md mx-auto px-4 pt-6 space-y-6 relative z-10">
 
                 {/* ══ HERO HEADER ══ */}
@@ -175,7 +198,7 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
                         <div>
                             <p className={`font-bold text-sm ${styles.textMain}`}>This Week</p>
                             <p className={`text-xs mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
-                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – today
+                                {weekDays[0]?.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {weekDays[6]?.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </p>
                         </div>
                         <span className="text-xs px-3 py-1.5 rounded-full font-semibold text-emerald-400"
@@ -186,14 +209,22 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
 
                     {/* Day bars */}
                     <div className="flex gap-2 items-end mb-2" style={{ height: '88px' }}>
-                        {WEEK_DAYS.map((day, idx) => {
-                            const sessionForDay = sessions[idx];
-                            const hasActivity = !!sessionForDay;
-                            const barHeight = hasActivity ? Math.max(20, Math.min(100, (sessionForDay.caloriesBurned / 600) * 100)) : 0;
+                        {weekDays.map((dayData, idx) => {
+                            const hasActivity = !!dayData.session;
+                            const barHeight = hasActivity ? Math.max(20, Math.min(100, (dayData.totalCals / 600) * 100)) : 0;
+                            const isSelected = selectedDayIndex === idx;
+                            const isToday = dayData.date.toDateString() === new Date().toDateString();
                             return (
-                                <div key={idx} className="flex-1 flex flex-col items-center justify-end gap-1">
-                                    <span className="text-sm">{hasActivity ? (activityEmoji[sessionForDay.activityType] || '⚡') : <span className="opacity-0">·</span>}</span>
-                                    <div className={`w-full rounded-full overflow-hidden ${isDark ? 'bg-white/6' : 'bg-gray-100'}`} style={{ height: '56px', position: 'relative' }}>
+                                <button
+                                    key={idx}
+                                    onClick={() => setSelectedDayIndex(idx)}
+                                    className="flex-1 flex flex-col items-center justify-end gap-1 transition-all"
+                                >
+                                    <span className="text-sm">{hasActivity ? (activityEmoji[dayData.session.activityType] || '⚡') : <span className="opacity-0">·</span>}</span>
+                                    <div
+                                        className={`w-full rounded-full overflow-hidden transition-all ${isDark ? 'bg-white/6' : 'bg-gray-100'}`}
+                                        style={{ height: '56px', position: 'relative', outline: isSelected ? '2px solid #34d399' : 'none', outlineOffset: '2px' }}
+                                    >
                                         {hasActivity && (
                                             <div
                                                 className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-500"
@@ -205,11 +236,63 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
                                             />
                                         )}
                                     </div>
-                                    <span className={`text-xs font-medium ${idx === 6 ? 'text-emerald-400 font-bold' : (isDark ? 'text-white/30' : 'text-gray-400')}`}>{day}</span>
-                                </div>
+                                    <span className={`text-xs font-medium ${isToday ? 'text-emerald-400 font-bold' : (isDark ? 'text-white/30' : 'text-gray-400')}`}>{WEEK_DAYS[idx]}</span>
+                                </button>
                             );
                         })}
                     </div>
+
+                    {/* Selected day detail */}
+                    {selectedDayIndex !== null && weekDays[selectedDayIndex] && (
+                        <div className={`mt-4 pt-4 animate-fade-in`} style={{ borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-sm font-bold" style={{ color: tc.textMain }}>
+                                    {weekDays[selectedDayIndex].date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                </p>
+                                <button
+                                    onClick={() => setSelectedDayIndex(null)}
+                                    className="text-[11px] font-bold transition-opacity hover:opacity-70"
+                                    style={{ color: tc.textMuted }}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            {weekDays[selectedDayIndex].session ? (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: 'rgba(52,211,153,0.1)' }}>
+                                            {activityEmoji[weekDays[selectedDayIndex].session.activityType] || '⚡'}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold capitalize" style={{ color: tc.textMain }}>{weekDays[selectedDayIndex].session.activityType}</p>
+                                            <p className="text-[11px]" style={{ color: tc.textMuted }}>
+                                                {weekDays[selectedDayIndex].count} session{weekDays[selectedDayIndex].count !== 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
+                                            <p className="text-lg font-black text-orange-400">{Math.round(weekDays[selectedDayIndex].totalCals)}</p>
+                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>kcal</p>
+                                        </div>
+                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
+                                            <p className="text-lg font-black text-cyan-400">{weekDays[selectedDayIndex].totalKm.toFixed(1)}</p>
+                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>km</p>
+                                        </div>
+                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
+                                            <p className="text-lg font-black text-purple-400">{Math.round(weekDays[selectedDayIndex].totalDuration / 60)}</p>
+                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>min</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-4 gap-2">
+                                    <span className="text-2xl">😴</span>
+                                    <p className="text-sm font-medium" style={{ color: tc.textMuted }}>Rest day — no activity logged</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* ══ QUICK LOG ══ */}

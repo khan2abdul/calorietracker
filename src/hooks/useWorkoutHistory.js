@@ -101,6 +101,7 @@ export function useWorkoutHistory() {
 
     return {
         sessions,
+        allSessions,
         loading,
         loadingMore: false,
         hasMore,

@@ -900,12 +900,12 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                     )}
 
                     {/* ════ AI INPUT CARD ════ */}
-                    <div className={`rounded-3xl p-6 mb-4 transition-all ${glassCard}`}
+                    <div className={`rounded-3xl p-5 mb-4 transition-all ${glassCard}`}
                         style={inputFocused ? { boxShadow: '0 0 40px rgba(52,211,153,0.08)' } : {}}>
 
                         {/* Top bar */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2.5">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                 <span className={`text-[15px] font-bold ${styles.textMain}`}>
                                     {type === 'exercise' ? 'Describe your workout' : 'What did you eat?'}
@@ -934,7 +934,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
 
                         {/* Sparkle suggestions trigger */}
-                        <div className="absolute top-4 right-4" ref={suggestionsRef}>
+                        <div className="absolute top-3 right-4" ref={suggestionsRef}>
                             <button
                                 onClick={handleToggleSuggestions}
                                 className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${showSuggestions
@@ -970,8 +970,8 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         <div className="relative">
                             <textarea
                                 ref={inputRef}
-                                className={`w-full bg-transparent text-lg outline-none resize-none ${isDark ? 'placeholder:text-white/20' : 'placeholder:text-gray-400'} ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
-                                rows={4}
+                                className={`w-full bg-transparent text-[15px] outline-none resize-none ${isDark ? 'placeholder:text-white/20' : 'placeholder:text-gray-400'} ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
+                                rows={3}
                                 placeholder={type === 'exercise' ? "e.g. 30 mins jogging at moderate pace..." : placeholder}
                                 value={query}
                                 onChange={handleQueryChange}
@@ -995,7 +995,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
 
                         {/* Char hint */}
-                        <p className={`text-[11px] mt-1.5 min-h-[16px] transition-colors ${query.length > 2 ? 'text-emerald-400/60' : (isDark ? 'text-white/20' : 'text-gray-400')}`}>
+                        <p className={`text-[11px] mt-1 min-h-[16px] transition-colors ${query.length > 2 ? 'text-emerald-400/60' : (isDark ? 'text-white/20' : 'text-gray-400')}`}>
                             {query.length > 2 ? `✓ Ready to analyze · ${query.split(' ').length} words` : (query.length > 0 ? 'Keep typing...' : '')}
                         </p>
 
@@ -1003,7 +1003,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         <VoiceRecordingIndicator isListening={isVoiceListening} isProcessing={isVoiceProcessing} theme={theme} />
 
                         {/* Divider */}
-                        <div className="h-px my-4" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)' }} />
+                        <div className="h-px my-3" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)' }} />
 
                         {/* Input modes */}
                         <div className="flex gap-2">
