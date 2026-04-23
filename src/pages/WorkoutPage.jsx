@@ -29,8 +29,6 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
         loadMore, deleteSession, weeklyStats, weeklyLoading
     } = useWorkoutHistory();
 
-    const [selectedDayIndex, setSelectedDayIndex] = useState(null);
-
     // Compute week number
     const weekNumber = useMemo(() => {
         const now = new Date();
@@ -212,18 +210,16 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
                         {weekDays.map((dayData, idx) => {
                             const hasActivity = !!dayData.session;
                             const barHeight = hasActivity ? Math.max(20, Math.min(100, (dayData.totalCals / 600) * 100)) : 0;
-                            const isSelected = selectedDayIndex === idx;
                             const isToday = dayData.date.toDateString() === new Date().toDateString();
                             return (
-                                <button
+                                <div
                                     key={idx}
-                                    onClick={() => setSelectedDayIndex(idx)}
-                                    className="flex-1 flex flex-col items-center justify-end gap-1 transition-all"
+                                    className="flex-1 flex flex-col items-center justify-end gap-1"
                                 >
                                     <span className="text-sm">{hasActivity ? (activityEmoji[dayData.session.activityType] || '⚡') : <span className="opacity-0">·</span>}</span>
                                     <div
-                                        className={`w-full rounded-full overflow-hidden transition-all ${isDark ? 'bg-white/6' : 'bg-gray-100'}`}
-                                        style={{ height: '56px', position: 'relative', outline: isSelected ? '2px solid #34d399' : 'none', outlineOffset: '2px' }}
+                                        className={`w-full rounded-full overflow-hidden ${isDark ? 'bg-white/6' : 'bg-gray-100'}`}
+                                        style={{ height: '56px', position: 'relative' }}
                                     >
                                         {hasActivity && (
                                             <div
@@ -237,62 +233,10 @@ const WorkoutPage = ({ onStartTracking, onSessionClick, theme }) => {
                                         )}
                                     </div>
                                     <span className={`text-xs font-medium ${isToday ? 'text-emerald-400 font-bold' : (isDark ? 'text-white/30' : 'text-gray-400')}`}>{WEEK_DAYS[idx]}</span>
-                                </button>
+                                </div>
                             );
                         })}
                     </div>
-
-                    {/* Selected day detail */}
-                    {selectedDayIndex !== null && weekDays[selectedDayIndex] && (
-                        <div className={`mt-4 pt-4 animate-fade-in`} style={{ borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm font-bold" style={{ color: tc.textMain }}>
-                                    {weekDays[selectedDayIndex].date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                                </p>
-                                <button
-                                    onClick={() => setSelectedDayIndex(null)}
-                                    className="text-[11px] font-bold transition-opacity hover:opacity-70"
-                                    style={{ color: tc.textMuted }}
-                                >
-                                    Close
-                                </button>
-                            </div>
-                            {weekDays[selectedDayIndex].session ? (
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: 'rgba(52,211,153,0.1)' }}>
-                                            {activityEmoji[weekDays[selectedDayIndex].session.activityType] || '⚡'}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold capitalize" style={{ color: tc.textMain }}>{weekDays[selectedDayIndex].session.activityType}</p>
-                                            <p className="text-[11px]" style={{ color: tc.textMuted }}>
-                                                {weekDays[selectedDayIndex].count} session{weekDays[selectedDayIndex].count !== 1 ? 's' : ''}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
-                                            <p className="text-lg font-black text-orange-400">{Math.round(weekDays[selectedDayIndex].totalCals)}</p>
-                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>kcal</p>
-                                        </div>
-                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
-                                            <p className="text-lg font-black text-cyan-400">{weekDays[selectedDayIndex].totalKm.toFixed(1)}</p>
-                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>km</p>
-                                        </div>
-                                        <div className="rounded-xl p-3 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
-                                            <p className="text-lg font-black text-purple-400">{Math.round(weekDays[selectedDayIndex].totalDuration / 60)}</p>
-                                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: tc.textFaint }}>min</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-4 gap-2">
-                                    <span className="text-2xl">😴</span>
-                                    <p className="text-sm font-medium" style={{ color: tc.textMuted }}>Rest day — no activity logged</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 {/* ══ QUICK LOG ══ */}
