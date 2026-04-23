@@ -400,10 +400,11 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     // Category browse state
     const [selectedCategory, setSelectedCategory] = useState(null);
 
-    // Frequent foods from last 30 days
+    // Frequent foods from last 15 days
     const [frequentFoods, setFrequentFoods] = useState([]);
     const [loadingFrequent, setLoadingFrequent] = useState(true);
     const [inputFocused, setInputFocused] = useState(false);
+    const [favoriteAdjustItem, setFavoriteAdjustItem] = useState(null);
 
     // Initialize with editing food data
     useEffect(() => {
@@ -488,14 +489,14 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         return () => document.removeEventListener('mousedown', handler);
     }, [showSuggestions]);
 
-    // Fetch most eaten foods from last 30 days
+    // Fetch unique foods logged in last 15 days
     useEffect(() => {
         console.log('[AddFoodView] frequentFoods effect triggered. User exists:', !!user);
         if (!user) { setLoadingFrequent(false); return; }
         const fetchFrequent = async () => {
             try {
                 const cutoff = new Date();
-                cutoff.setDate(cutoff.getDate() - 30);
+                cutoff.setDate(cutoff.getDate() - 15);
                 const startStr = getLocalDateStr(cutoff);
                 console.log('[AddFoodView] Fetching frequent foods from', startStr, 'onwards for user', user.uid);
                 const q = query(
@@ -504,37 +505,25 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                 );
                 const snap = await getDocs(q);
                 console.log('[AddFoodView] frequentFoods getDocs returned', snap.docs.length, 'documents');
-                const counts = new Map(); // name -> { count, item }
+                const seen = new Map(); // name -> item (most recent overwrites)
                 snap.docs.forEach(doc => {
                     const data = doc.data();
                     const logs = data.foodLogs || {};
                     Object.values(logs).flat().forEach(food => {
                         if (!food || !food.name) return;
                         const key = food.name.toLowerCase().trim();
-                        const existing = counts.get(key);
-                        if (existing) {
-                            existing.count += 1;
-                        } else {
-                            counts.set(key, {
-                                count: 1,
-                                item: {
-                                    name: food.name,
-                                    portion: food.weight || food.portion || '1 serving',
-                                    calories: food.calories || 0,
-                                    protein: food.protein || 0,
-                                    carbs: food.carbs || 0,
-                                    fat: food.fat || 0,
-                                    icon: '🍽️'
-                                }
-                            });
-                        }
+                        seen.set(key, {
+                            name: food.name,
+                            portion: food.weight || food.portion || '1 serving',
+                            calories: food.calories || 0,
+                            protein: food.protein || 0,
+                            carbs: food.carbs || 0,
+                            fat: food.fat || 0,
+                            icon: '🍽️'
+                        });
                     });
                 });
-                // Sort by frequency, take top 8
-                const sorted = Array.from(counts.values())
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 8)
-                    .map(entry => entry.item);
+                const sorted = Array.from(seen.values()).slice(0, 12);
                 console.log('[AddFoodView] frequentFoods computed:', sorted.length, 'items', sorted.map(i => i.name));
                 setFrequentFoods(sorted);
             } catch (e) {
@@ -1280,41 +1269,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
                     )}
 
-                    {/* ════ RECENTLY LOGGED ════ */}
-                    {type !== 'exercise' && (
-                        <div className="mb-7">
-                            <div className="flex items-center justify-between mb-3.5">
-                                <p className={`text-sm font-bold ${styles.textMain}`}>Recently logged today</p>
-                                <p className={`text-[11px] font-semibold cursor-pointer ${isDark ? 'text-emerald-400/60' : 'text-emerald-600'}`}>Tap + to re-add</p>
-                            </div>
-                            {recentFoods.length === 0 && (
-                                <p className={`text-xs ${isDark ? 'text-white/20' : 'text-gray-400'} mb-2`}>
-                                    [Debug] recentFoods is empty — no recently logged items to show.
-                                </p>
-                            )}
-                            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                                {recentFoods.slice(0, 8).map((food, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleAddFood(food)}
-                                        className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
-                                        style={{ minWidth: '152px' }}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[28px]">{food.icon || '🍽️'}</span>
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                                +
-                                            </div>
-                                        </div>
-                                        <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{food.name}</p>
-                                        <p className={`text-[11px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{food.portion || food.weight}</p>
-                                        <p className="text-[13px] font-extrabold text-orange-400 mt-1">{food.calories} kcal</p>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
                     {/* ════ FAVORITES ════ */}
                     {type !== 'exercise' && (
                         <div className="mb-7">
@@ -1325,7 +1279,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                     <div className="text-[40px] mb-3 grayscale opacity-50">🌟</div>
                                     <p className={`text-[15px] font-bold ${isDark ? 'text-white/35' : 'text-gray-400'}`}>No favorites yet</p>
                                     <p className={`text-xs mt-1.5 leading-relaxed ${isDark ? 'text-white/18' : 'text-gray-400'}`}>
-                                        Foods you log 3+ times will<br />automatically appear here
+                                        Foods you logged in the last 15 days<br />will automatically appear here
                                     </p>
                                     <button
                                         onClick={() => setShowSearchOverlay(true)}
@@ -1341,14 +1295,14 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                     {frequentFoods.map((item, idx) => (
                                         <button
                                             key={idx}
-                                            onClick={() => handleQuickAdd(item)}
+                                            onClick={() => setFavoriteAdjustItem(item)}
                                             className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
                                             style={{ minWidth: '152px' }}
                                         >
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className="text-[28px]">{item.icon || '🍽️'}</span>
                                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                                    +
+                                                    ⚖
                                                 </div>
                                             </div>
                                             <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{item.name}</p>
@@ -1505,6 +1459,67 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ════ FAVORITE WEIGHT ADJUSTMENT ════ */}
+            {favoriteAdjustItem && (
+                <div className="fixed inset-0 z-[65] flex items-end justify-center px-4 pb-8 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFavoriteAdjustItem(null)} />
+                    <div className={`relative w-full max-w-sm rounded-[2rem] p-6 shadow-2xl border ${cardBg} ${styles.border}`}>
+                        <div className="flex justify-between items-start mb-5">
+                            <div>
+                                <p className={`text-lg font-bold ${styles.textMain}`}>{favoriteAdjustItem.name}</p>
+                                <p className={`text-xs ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Adjust portion before adding</p>
+                            </div>
+                            <button onClick={() => setFavoriteAdjustItem(null)} className={`p-2 rounded-full ${isDark ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
+                                <X size={16} className={styles.textSec} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div className={`p-4 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+                                <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>Portion / Weight</p>
+                                <input
+                                    type="text"
+                                    value={favoriteAdjustItem.portion}
+                                    onChange={(e) => setFavoriteAdjustItem({ ...favoriteAdjustItem, portion: e.target.value })}
+                                    className={`w-full bg-transparent text-lg font-bold outline-none ${styles.textMain}`}
+                                    placeholder="e.g. 1 cup, 150g"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Protein</p>
+                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.protein}g</p>
+                                </div>
+                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Carbs</p>
+                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.carbs}g</p>
+                                </div>
+                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-orange-500/10' : 'bg-orange-50'}`}>
+                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>Fat</p>
+                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.fat}g</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                handleQuickAdd(favoriteAdjustItem);
+                                setFavoriteAdjustItem(null);
+                            }}
+                            className="w-full py-4 rounded-2xl font-extrabold text-sm transition-all"
+                            style={{
+                                background: 'linear-gradient(135deg, #34d399, #22d3ee)',
+                                color: '#000',
+                                boxShadow: '0 4px 24px rgba(52,211,153,0.3)'
+                            }}
+                        >
+                            + Add to {activeMeal}
+                        </button>
                     </div>
                 </div>
             )}
