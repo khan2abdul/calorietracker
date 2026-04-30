@@ -282,7 +282,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const [recentSearches, setRecentSearches] = useState(['Pizza', 'Chicken', 'Rice', 'Apple', 'Milk']);
     const [toast, setToast] = useState(null);
     const [lastAddedItem, setLastAddedItem] = useState(null);
-    const [editingWeight, setEditingWeight] = useState(null);
     const [expandedMacros, setExpandedMacros] = useState(new Set());
     const [slowConnection, setSlowConnection] = useState(false);
     // Category browse state
@@ -596,28 +595,6 @@ Return ONLY this JSON format, nothing else:
             newExpanded.add(index);
         }
         setExpandedMacros(newExpanded);
-    };
-
-    // Weight update handler
-    const handleWeightUpdate = (index, newWeight) => {
-        if (!aiResult) return;
-        const updatedSuggestions = [...aiResult.suggestions];
-        const item = updatedSuggestions[index];
-        // Extract numeric weight from strings like "200g", "1 bowl, 200g", etc.
-        const weightMatch = String(item.weight).match(/(\d+)\s*g/i);
-        const originalWeight = weightMatch ? parseInt(weightMatch[1]) : (parseInt(item.weight) || 200);
-        const ratio = newWeight / originalWeight;
-
-        updatedSuggestions[index] = {
-            ...item,
-            weight: `${newWeight}g`,
-            calories: Math.round(item.calories * ratio),
-            protein: Math.round(item.protein * ratio * 10) / 10,
-            carbs: Math.round(item.carbs * ratio * 10) / 10,
-            fat: Math.round(item.fat * ratio * 10) / 10
-        };
-
-        setAiResult({ ...aiResult, suggestions: updatedSuggestions });
     };
 
     // Search functionality
@@ -945,16 +922,6 @@ Return ONLY this JSON format, nothing else:
                                 const fFlex = totalMacros > 0 ? Math.max(1, Math.round((item.fat / totalMacros) * 100)) : 1;
                                 return (
                                     <div key={idx} className={`rounded-3xl p-6 relative overflow-hidden ${glassCard}`}>
-                                        {/* Weight Editor Overlay */}
-                                        {editingWeight === idx && (
-                                            <WeightEditor
-                                                value={item.weight}
-                                                onChange={(newWeight) => handleWeightUpdate(idx, newWeight)}
-                                                onClose={() => setEditingWeight(null)}
-                                                theme={theme}
-                                            />
-                                        )}
-
                                         {/* AI Analysis Complete badge */}
                                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-4"
                                             style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}>
@@ -1049,17 +1016,7 @@ Return ONLY this JSON format, nothing else:
                                             >
                                                 ✓ &nbsp;Log it
                                             </button>
-                                            <button
-                                                onClick={() => setEditingWeight(idx)}
-                                                className={`px-5 py-4 rounded-2xl font-semibold text-sm transition-all ${isDark ? 'bg-white/[0.07] text-white/70 border border-white/[0.12] hover:bg-white/[0.12]' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'}`}
-                                            >
-                                                ✏️ Adjust
-                                            </button>
                                         </div>
-                                        <p className="text-center text-xs text-emerald-400/55 cursor-pointer font-semibold"
-                                            onClick={() => { setAiResult(null); inputRef.current?.focus(); }}>
-                                            ↻ &nbsp;Re-analyze with different portion
-                                        </p>
                                     </div>
                                 );
                             })}
