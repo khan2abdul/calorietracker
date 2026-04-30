@@ -271,7 +271,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const [mealAutoSelected, setMealAutoSelected] = useState(!meal); // true if we auto-selected
     const [mode, setMode] = useState(type === 'exercise' || initialTerm ? 'ai' : 'ai');
     const [query, setQuery] = useState(initialTerm || '');
-    const [foodWeight, setFoodWeight] = useState('');
+    const [foodWeight, setFoodWeight] = useState('100');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
     const [error, setError] = useState('');
@@ -409,7 +409,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         if (type === 'exercise') {
             prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.9}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.85}].`;
         } else {
-            const finalWeight = detectedWeight || foodWeight.trim() || '200';
+            const finalWeight = detectedWeight || foodWeight || '200';
             prompt = `Calculate exact nutrition for ${finalWeight}g of: "${query}".
 
 Return ONLY this JSON, nothing else:
@@ -450,9 +450,9 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                 const first = items[0];
                 if (first) {
                     const userWeight = parseInt(foodWeight) || parseInt(detectedWeight) || 200;
-                    // If AI returned a different weight than requested, scale to user's weight
                     const aiWeight = parseInt(first.weight) || userWeight;
                     const scale = userWeight / aiWeight;
+                    console.log('[AddFoodView] WEIGHT DEBUG:', { foodWeight, detectedWeight, userWeight, aiWeight, scale, aiCalories: first.calories, finalCalories: Math.round(first.calories * scale) });
                     result = {
                         suggestions: [{
                             ...first,
@@ -788,7 +788,7 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                                     <div className="flex items-center justify-between mb-2">
                                         <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>Portion size</span>
                                         <div className="flex items-baseline gap-0.5">
-                                            <span className={`text-2xl font-black ${styles.textMain}`}>{foodWeight || '100'}</span>
+                                            <span className={`text-2xl font-black ${styles.textMain}`}>{foodWeight}</span>
                                             <span className={`text-[11px] font-semibold ${isDark ? 'text-white/30' : 'text-gray-400'}`}>g</span>
                                         </div>
                                     </div>
@@ -799,11 +799,11 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                                             min="50"
                                             max="500"
                                             step="25"
-                                            value={foodWeight || '100'}
+                                            value={foodWeight}
                                             onChange={(e) => setFoodWeight(e.target.value)}
                                             className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                                             style={{
-                                                background: `linear-gradient(to right, ${isDark ? '#34d399' : '#10b981'} ${((parseInt(foodWeight) || 100) - 50) / 450 * 100}%, ${isDark ? '#2C2C2E' : '#e5e7eb'} ${((parseInt(foodWeight) || 100) - 50) / 450 * 100}%)`,
+                                                background: `linear-gradient(to right, ${isDark ? '#34d399' : '#10b981'} ${(parseInt(foodWeight) - 50) / 450 * 100}%, ${isDark ? '#2C2C2E' : '#e5e7eb'} ${(parseInt(foodWeight) - 50) / 450 * 100}%)`,
                                                 WebkitAppearance: 'none'
                                             }}
                                             aria-label="Portion in grams"
@@ -819,7 +819,7 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                                             <button
                                                 key={w}
                                                 onClick={() => setFoodWeight(String(w))}
-                                                className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all ${(parseInt(foodWeight) || 100) === w
+                                                className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all ${parseInt(foodWeight) === w
                                                     ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')
                                                     : (isDark ? 'bg-white/[0.04] text-white/30 border border-white/[0.06]' : 'bg-gray-50 text-gray-400 border border-gray-200')
                                                 }`}
