@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Sparkles, Mic, ArrowRight, Plus, Search, ScanLine, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp, Loader2, Heart } from 'lucide-react';
+import { X, Sparkles, Mic, ArrowRight, Plus, Search, Edit2, Clock, ChevronDown, Undo2, Check, AlertCircle, HelpCircle, Zap, Star, Filter, TrendingUp, Loader2, Heart } from 'lucide-react';
 import { THEMES } from '../theme';
-import { db } from '../firebase.js';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { getLocalDateStr } from '../utils';
 
 // ==========================================
 // CONSTANTS & DATA
@@ -198,6 +195,17 @@ const mealSuggestions = {
 // HELPER COMPONENTS
 // ==========================================
 
+// Confidence indicator component — only show warnings for genuinely low confidence
+const ConfidenceIndicator = ({ score, theme }) => {
+    if (score >= 0.75) {
+        return null;
+    } else if (score >= 0.5) {
+        return <span className="flex items-center gap-1 text-xs text-amber-500 font-medium"><AlertCircle size={12} /> Approximate</span>;
+    } else {
+        return <span className="flex items-center gap-1 text-xs text-orange-500 font-medium"><HelpCircle size={12} /> Estimate only</span>;
+    }
+};
+
 // Loading skeleton for AI suggestions
 const SkeletonCard = ({ theme }) => (
     <div className={`p-4 rounded-2xl animate-pulse ${theme === 'dark' ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
@@ -236,119 +244,6 @@ const Toast = ({ message, type = 'success', onUndo, onDismiss, theme }) => {
     );
 };
 
-// Voice recording indicator component
-const VoiceRecordingIndicator = ({ isListening, isProcessing, theme }) => {
-    if (isProcessing) {
-        return (
-            <div className={`flex items-center gap-2 text-sm ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                <span className="font-medium">Converting speech...</span>
-            </div>
-        );
-    }
-
-    if (isListening) {
-        return (
-            <div className="flex items-center gap-3">
-                <div className="relative flex items-center gap-1">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    {[...Array(3)].map((_, i) => (
-                        <div
-                            key={i}
-                            className={`w-1 bg-red-400 rounded-full animate-pulse`}
-                            style={{
-                                height: `${8 + Math.random() * 12}px`,
-                                animationDelay: `${i * 0.1}s`
-                            }}
-                        />
-                    ))}
-                </div>
-                <span className={`text-sm font-medium ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Listening...</span>
-            </div>
-        );
-    }
-
-    return null;
-};
-
-// Confidence indicator component — only show warnings for genuinely low confidence
-const ConfidenceIndicator = ({ score, theme }) => {
-    if (score >= 0.75) {
-        return null; // High confidence — no badge needed
-    } else if (score >= 0.5) {
-        return <span className="flex items-center gap-1 text-xs text-amber-500 font-medium"><AlertCircle size={12} /> Approximate</span>;
-    } else {
-        return <span className="flex items-center gap-1 text-xs text-orange-500 font-medium"><HelpCircle size={12} /> Estimate only</span>;
-    }
-};
-
-// Macro progress bar
-const MacroBar = ({ label, value, max, color, theme }) => (
-    <div className="flex items-center gap-2 text-xs">
-        <span className={`w-12 font-medium ${theme === 'dark' ? 'text-[#b0b8c8]' : 'text-gray-500'}`}>{label}</span>
-        <div className={`flex-1 h-1.5 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C]' : 'bg-gray-200'}`}>
-            <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${Math.min((value / max) * 100, 100)}%` }} />
-        </div>
-        <span className={`w-8 text-right font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{value}g</span>
-    </div>
-);
-
-// Weight slider editor — rendered as a bottom sheet overlay
-const WeightEditor = ({ value, onChange, onClose, theme }) => {
-    const [weight, setWeight] = useState(parseInt(value) || 200);
-    const quickWeights = [50, 100, 150, 200, 300, 500];
-
-    return (
-        <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 z-[80] bg-black/60" onClick={onClose} />
-            {/* Bottom Sheet */}
-            <div className={`fixed bottom-0 left-0 right-0 z-[90] rounded-t-3xl p-6 pb-8 animate-slide-up md:max-w-md md:left-1/2 md:-translate-x-1/2 ${theme === 'dark' ? 'bg-[#1C1C1E]' : 'bg-white'}`}>
-                {/* Handle bar */}
-                <div className="flex justify-center mb-4">
-                    <div className={`w-10 h-1 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C]' : 'bg-gray-300'}`} />
-                </div>
-                <div className="flex justify-between items-center mb-5">
-                    <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Adjust Weight</span>
-                    <button onClick={onClose} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#3A3A3C] text-white' : 'bg-gray-100 text-gray-600'}`}>
-                        <X size={18} />
-                    </button>
-                </div>
-                {/* Current value */}
-                <div className="flex justify-center mb-4">
-                    <span className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{weight}<span className="text-lg opacity-50">g</span></span>
-                </div>
-                {/* Slider */}
-                <input
-                    type="range"
-                    min="10"
-                    max="1000"
-                    step="10"
-                    value={weight}
-                    onChange={(e) => setWeight(parseInt(e.target.value))}
-                    className="w-full h-2 rounded-full accent-blue-500 mb-2 cursor-pointer"
-                />
-                <div className="flex justify-between text-xs mb-5">
-                    <span className={theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}>10g</span>
-                    <span className={theme === 'dark' ? 'text-[#9aa3b2]' : 'text-gray-400'}>1000g</span>
-                </div>
-                {/* Quick weight buttons */}
-                <div className="flex gap-2 mb-6">
-                    {quickWeights.map(w => (
-                        <button key={w} onClick={() => setWeight(w)} className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors ${weight === w ? (theme === 'dark' ? 'bg-blue-500 text-white' : 'bg-black text-white') : (theme === 'dark' ? 'bg-[#2C2C2E] text-white' : 'bg-gray-100 text-gray-700')}`}>
-                            {w}g
-                        </button>
-                    ))}
-                </div>
-                {/* Apply button */}
-                <button onClick={() => { onChange(weight); onClose(); }} className={`w-full py-4 rounded-2xl font-bold text-white text-base ${theme === 'dark' ? 'bg-blue-500 active:bg-blue-600' : 'bg-black active:bg-gray-800'} transition-colors`}>
-                    Apply Weight
-                </button>
-            </div>
-        </>
-    );
-};
-
 // Change #3: Time-aware meal auto-selection (centralized in config.js)
 import { getTimeBasedMeal } from '../config';
 
@@ -376,6 +271,7 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const [mealAutoSelected, setMealAutoSelected] = useState(!meal); // true if we auto-selected
     const [mode, setMode] = useState(type === 'exercise' || initialTerm ? 'ai' : 'ai');
     const [query, setQuery] = useState(initialTerm || '');
+    const [foodWeight, setFoodWeight] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
     const [error, setError] = useState('');
@@ -386,25 +282,12 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const [recentSearches, setRecentSearches] = useState(['Pizza', 'Chicken', 'Rice', 'Apple', 'Milk']);
     const [toast, setToast] = useState(null);
     const [lastAddedItem, setLastAddedItem] = useState(null);
-    const [showTooltip, setShowTooltip] = useState(false);
-    const [isVoiceListening, setIsVoiceListening] = useState(false);
-    const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
     const [editingWeight, setEditingWeight] = useState(null);
     const [expandedMacros, setExpandedMacros] = useState(new Set());
     const [slowConnection, setSlowConnection] = useState(false);
-    // Change #9: Sparkle suggestions popover
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [lastSuggestionSet, setLastSuggestionSet] = useState([]);
-    // Change #5: Scan tooltip
-    const [showScanPulse, setShowScanPulse] = useState(false);
     // Category browse state
     const [selectedCategory, setSelectedCategory] = useState(null);
-
-    // Frequent foods from last 15 days
-    const [frequentFoods, setFrequentFoods] = useState([]);
-    const [loadingFrequent, setLoadingFrequent] = useState(true);
     const [inputFocused, setInputFocused] = useState(false);
-    const [favoriteAdjustItem, setFavoriteAdjustItem] = useState(null);
 
     // Initialize with editing food data
     useEffect(() => {
@@ -424,7 +307,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const searchInputRef = useRef(null);
     const analysisTimerRef = useRef(null);
     const slowConnectionTimerRef = useRef(null);
-    const suggestionsRef = useRef(null);
 
     const styles = THEMES[theme];
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
@@ -437,6 +319,40 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         PLACEHOLDER_EXAMPLES[Math.floor(Math.random() * PLACEHOLDER_EXAMPLES.length)],
         []
     );
+
+    // Food variation pills based on query
+    const FOOD_VARIATIONS = {
+        rice: ['White rice', 'Brown rice', 'Basmati rice', 'Fried rice', 'Jeera rice'],
+        chicken: ['Grilled chicken', 'Chicken curry', 'Chicken breast', 'Chicken biryani', 'Tandoori chicken'],
+        roti: ['Roti', 'Chapati', 'Naan', 'Paratha', 'Tandoori roti'],
+        dal: ['Dal tadka', 'Dal fry', 'Moong dal', 'Masoor dal', 'Toor dal'],
+        egg: ['Boiled egg', 'Omelette', 'Scrambled eggs', 'Egg curry', 'Poached egg'],
+        paneer: ['Paneer butter masala', 'Grilled paneer', 'Paneer tikka', 'Palak paneer', 'Paneer bhurji'],
+        fish: ['Grilled fish', 'Fish curry', 'Fish fry', 'Fish tikka', 'Fish biryani'],
+        salad: ['Green salad', 'Caesar salad', 'Fruit salad', 'Cucumber salad', 'Sprout salad'],
+        bread: ['Bread toast', 'Bread butter', 'Bread sandwich', 'Garlic bread', 'Whole wheat bread'],
+        oats: ['Oats porridge', 'Oats with milk', 'Overnight oats', 'Oats upma', 'Oats chilla'],
+        banana: ['Banana', 'Banana smoothie', 'Banana shake', 'Banana chips', 'Banana with milk'],
+        milk: ['Milk', 'Cold milk', 'Hot milk', 'Milkshake', 'Turmeric milk'],
+        tea: ['Tea', 'Green tea', 'Black tea', 'Masala chai', 'Lemon tea'],
+        coffee: ['Coffee', 'Black coffee', 'Cold coffee', 'Cappuccino', 'Latte'],
+        dosa: ['Plain dosa', 'Masala dosa', 'Rava dosa', 'Onion dosa', 'Mysore dosa'],
+        idli: ['Idli', 'Masala idli', 'Rava idli', 'Idli sambar', 'Fried idli'],
+        samosa: ['Samosa', 'Aloo samosa', 'Paneer samosa', 'Samosa chaat', 'Baked samosa'],
+        biryani: ['Chicken biryani', 'Veg biryani', 'Mutton biryani', 'Egg biryani', 'Hyderabadi biryani'],
+        soup: ['Tomato soup', 'Veg soup', 'Chicken soup', 'Mushroom soup', 'Sweet corn soup'],
+    };
+
+    const foodPills = useMemo(() => {
+        if (!query.trim() || query.trim().length < 2) return [];
+        const lower = query.toLowerCase().trim();
+        for (const [key, variations] of Object.entries(FOOD_VARIATIONS)) {
+            if (lower.includes(key)) {
+                return variations;
+            }
+        }
+        return [];
+    }, [query]);
 
     // Change #6: Get recent items from localStorage or fall back to defaults
     const { quickAddItems, isUsingRecent } = useMemo(() => {
@@ -452,88 +368,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         } catch (e) { /* ignore parse errors */ }
         return { quickAddItems: (QUICK_ADD_BY_MEAL[activeMeal] || QUICK_ADD_BY_MEAL.Snacks).slice(0, 8), isUsingRecent: false };
     }, [activeMeal]);
-
-    // Show first-time tooltip
-    useEffect(() => {
-        const hasSeenTooltip = localStorage.getItem('seenAILogTooltip');
-        if (!hasSeenTooltip && mode === 'ai') {
-            setShowTooltip(true);
-            setTimeout(() => {
-                setShowTooltip(false);
-                localStorage.setItem('seenAILogTooltip', 'true');
-            }, 3000);
-        }
-    }, [mode]);
-
-    // Change #5: One-time scan pulse
-    useEffect(() => {
-        const hasSeen = localStorage.getItem('seenScanTooltip');
-        if (!hasSeen) {
-            setShowScanPulse(true);
-            const timer = setTimeout(() => {
-                setShowScanPulse(false);
-                localStorage.setItem('seenScanTooltip', 'true');
-            }, 4000);
-            return () => clearTimeout(timer);
-        }
-    }, []);
-
-    // Close suggestions popover on outside click
-    useEffect(() => {
-        const handler = (e) => {
-            if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
-                setShowSuggestions(false);
-            }
-        };
-        if (showSuggestions) document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showSuggestions]);
-
-    // Fetch unique foods logged in last 15 days
-    useEffect(() => {
-        console.log('[AddFoodView] frequentFoods effect triggered. User exists:', !!user);
-        if (!user) { setLoadingFrequent(false); return; }
-        const fetchFrequent = async () => {
-            try {
-                const cutoff = new Date();
-                cutoff.setDate(cutoff.getDate() - 15);
-                const startStr = getLocalDateStr(cutoff);
-                console.log('[AddFoodView] Fetching frequent foods from', startStr, 'onwards for user', user.uid);
-                const q = query(
-                    collection(db, 'users', user.uid, 'daily_logs'),
-                    where('__name__', '>=', startStr)
-                );
-                const snap = await getDocs(q);
-                console.log('[AddFoodView] frequentFoods getDocs returned', snap.docs.length, 'documents');
-                const seen = new Map(); // name -> item (most recent overwrites)
-                snap.docs.forEach(doc => {
-                    const data = doc.data();
-                    const logs = data.foodLogs || {};
-                    Object.values(logs).flat().forEach(food => {
-                        if (!food || !food.name) return;
-                        const key = food.name.toLowerCase().trim();
-                        seen.set(key, {
-                            name: food.name,
-                            portion: food.weight || food.portion || '1 serving',
-                            calories: food.calories || 0,
-                            protein: food.protein || 0,
-                            carbs: food.carbs || 0,
-                            fat: food.fat || 0,
-                            icon: '🍽️'
-                        });
-                    });
-                });
-                const sorted = Array.from(seen.values()).slice(0, 12);
-                console.log('[AddFoodView] frequentFoods computed:', sorted.length, 'items', sorted.map(i => i.name));
-                setFrequentFoods(sorted);
-            } catch (e) {
-                console.error('[AddFoodView] Error fetching frequent foods:', e);
-            } finally {
-                setLoadingFrequent(false);
-            }
-        };
-        fetchFrequent();
-    }, [user]);
 
     // Auto-capitalize first letter
     const handleQueryChange = (e) => {
@@ -570,7 +404,23 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         if (type === 'exercise') {
             prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.9}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.85}].`;
         } else {
-            prompt = `Analyze this meal description: "${query}". You are a nutrition expert specializing in Indian and international cuisine. Estimate calories, protein (g), carbs (g), fat (g), and approximate weight with high accuracy. Use standard USDA and Indian food composition tables. Be precise with portion sizes. For common items like roti, rice, dal, chai, eggs, etc., use well-established values. Provide 2-3 portion size variations. Return ONLY a valid JSON object: {"suggestions": [{"name": "Food Name", "weight": "200g", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "confidence": 0.92}], "alternatives": ["Alt 1", "Alt 2"]}. Set confidence to 0.85+ for common foods and 0.7+ for complex mixed meals. Never below 0.6.`;
+            const explicitWeight = foodWeight.trim();
+            const queryWeightMatch = query.match(/(\d+)\s*(gm|g|grams?|grms?)\b/i);
+            const detectedWeight = explicitWeight || (queryWeightMatch ? queryWeightMatch[1] : '');
+            if (!explicitWeight && detectedWeight) {
+                setFoodWeight(detectedWeight);
+            }
+            const finalWeight = detectedWeight || '200';
+            prompt = `You are a nutrition database. Analyze this food: "${query}".
+
+RULES:
+- Return EXACTLY ONE food item. No variations, no alternatives, no arrays.
+- Return nutrition values PER 100 GRAMS. This is a strict rule — always normalize to 100g.
+- Calculate calories, protein, carbs, fat precisely per 100g using USDA/Indian food composition data.
+- Be precise to one decimal place. No rounding to neat numbers.
+
+Return ONLY this JSON format, nothing else:
+{"suggestions": [{"name": "Food Name", "weight": "100g", "calories": 130, "protein": 2.7, "carbs": 28.2, "fat": 0.3, "confidence": 0.95}], "alternatives": []}`;
         }
 
         try {
@@ -595,46 +445,55 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
             const parsed = JSON.parse(jsonString);
             console.log('[AddFoodView] AI parsed successfully. Suggestions count:', parsed.suggestions?.length || parsed.length || 0);
 
+            // Always keep only the first suggestion
+            let result;
             if (type === 'exercise') {
-                if (Array.isArray(parsed)) setAiResult({ suggestions: parsed, alternatives: [] });
+                const items = Array.isArray(parsed) ? parsed : (parsed.suggestions || []);
+                result = { suggestions: items.slice(0, 1), alternatives: [] };
             } else {
-                if (parsed.suggestions) setAiResult(parsed);
-                else if (Array.isArray(parsed)) setAiResult({ suggestions: parsed, alternatives: [] });
+                const items = parsed.suggestions || (Array.isArray(parsed) ? parsed : []);
+                const first = items[0];
+                if (first) {
+                    // Always scale from per-100g baseline to user's weight
+                    const userWeight = parseInt(foodWeight) || 200;
+                    const scale = userWeight / 100;
+                    result = {
+                        suggestions: [{
+                            ...first,
+                            weight: `${userWeight}g`,
+                            calories: Math.round(first.calories * scale),
+                            protein: Math.round(first.protein * scale * 10) / 10,
+                            carbs: Math.round(first.carbs * scale * 10) / 10,
+                            fat: Math.round(first.fat * scale * 10) / 10,
+                        }],
+                        alternatives: []
+                    };
+                } else {
+                    result = { suggestions: [], alternatives: [] };
+                }
             }
+            setAiResult(result);
         } catch (err) {
             console.error('[AddFoodView] AI Analysis FAILED:', err.message, err);
-            // Provide helpful error messages
-            if (query.match(/^\d*$/)) {
-                setError("Please add quantity. Example: '2 rotis' instead of just '2'");
-            } else if (query.length < 3) {
-                setError("Please be more specific. Example: '1 medium apple' or '200g cooked rice'");
-            } else {
-                setError("Couldn't recognize that. Try being more specific: '1 medium apple' or '200g cooked rice'");
-            }
 
-            // Fallback demo data
-            setTimeout(() => {
-                if (type === 'exercise') {
-                    setAiResult({
-                        suggestions: [
-                            { name: query + " (light)", duration: "30 mins", calories: 180, confidence: 0.6 },
-                            { name: query + " (moderate)", duration: "30 mins", calories: 250, confidence: 0.7 },
-                            { name: query + " (intense)", duration: "30 mins", calories: 350, confidence: 0.5 }
-                        ],
-                        alternatives: []
-                    });
-                } else {
-                    setAiResult({
-                        suggestions: [
-                            { name: query, weight: "150g", calories: 280, protein: 12, carbs: 35, fat: 10, confidence: 0.75 },
-                            { name: query + " (small)", weight: "100g", calories: 180, protein: 8, carbs: 23, fat: 6, confidence: 0.65 },
-                            { name: query + " (large)", weight: "250g", calories: 460, protein: 20, carbs: 58, fat: 17, confidence: 0.6 }
-                        ],
-                        alternatives: ["Similar food 1", "Similar food 2", "Similar food 3"]
-                    });
-                }
-                setError('');
-            }, 800);
+            // Fallback: generate a local estimate (no error flash)
+            const w = parseInt(foodWeight) || 200;
+            const scale = w / 100;
+            if (type === 'exercise') {
+                setAiResult({
+                    suggestions: [
+                        { name: query, duration: "30 mins", calories: 250, confidence: 0.5 }
+                    ],
+                    alternatives: []
+                });
+            } else {
+                setAiResult({
+                    suggestions: [
+                        { name: query, weight: `${w}g`, calories: Math.round(140 * scale), protein: Math.round(6 * scale * 10) / 10, carbs: Math.round(18 * scale * 10) / 10, fat: Math.round(5 * scale * 10) / 10, confidence: 0.5 }
+                    ],
+                    alternatives: []
+                });
+            }
         } finally {
             clearInterval(analysisTimerRef.current);
             clearTimeout(slowConnectionTimerRef.current);
@@ -792,25 +651,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     };
 
     // Change #9: Get random suggestions that differ from last set
-    const getRandomSuggestions = () => {
-        const pool = mealSuggestions[activeMeal] || mealSuggestions.Snacks;
-        let available = pool.filter(s => !lastSuggestionSet.includes(s));
-        if (available.length < 3) available = [...pool]; // reset if exhausted
-        const shuffled = available.sort(() => Math.random() - 0.5);
-        const picked = shuffled.slice(0, 3);
-        setLastSuggestionSet(picked);
-        return picked;
-    };
-
-    const [currentSuggestions, setCurrentSuggestions] = useState([]);
-
-    const handleToggleSuggestions = () => {
-        if (!showSuggestions) {
-            setCurrentSuggestions(getRandomSuggestions());
-        }
-        setShowSuggestions(!showSuggestions);
-    };
-
     // Styles
     const isDark = theme === 'dark';
     const modalBg = isDark ? 'bg-[#000000]' : (theme === 'wooden' ? 'bg-[#EAD8B1]' : 'bg-[#F2F2F7]');
@@ -889,182 +729,186 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                     )}
 
                     {/* ════ AI INPUT CARD ════ */}
-                    <div className={`rounded-3xl p-5 mb-4 transition-all ${glassCard}`}
+                    <div className={`rounded-2xl overflow-hidden mb-6 transition-all ${glassCard}`}
                         style={inputFocused ? { boxShadow: '0 0 40px rgba(52,211,153,0.08)' } : {}}>
 
-                        {/* Top bar */}
-                        <div className="flex items-center justify-between mb-3">
+                        {/* Topbar */}
+                        <div className={`flex items-center justify-between px-4 py-3 ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className={`text-[15px] font-bold ${styles.textMain}`}>
-                                    {type === 'exercise' ? 'Describe your workout' : 'What did you eat?'}
+                                <span className={`text-sm font-bold ${styles.textMain}`}>
+                                    {type === 'exercise' ? 'Log Activity' : 'Log a meal'}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
-                                {/* Reset / Clear button */}
                                 {(query.trim() || aiResult) && (
                                     <button
-                                        onClick={() => { setQuery(''); setAiResult(null); setError(''); inputRef.current?.focus(); }}
-                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${isDark ? 'bg-white/[0.06] text-white/40 border border-white/[0.08] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200'}`}
-                                        title="Clear search & result"
+                                        onClick={() => { setQuery(''); setFoodWeight(''); setAiResult(null); setError(''); inputRef.current?.focus(); }}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${isDark ? 'bg-white/[0.06] text-white/40 border border-white/[0.08] hover:bg-red-500/20 hover:text-red-400' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500'}`}
                                         aria-label="Reset"
                                     >
-                                        <X size={12} strokeWidth={3} /> Reset
+                                        <X size={10} strokeWidth={3} /> Reset
                                     </button>
                                 )}
-                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full"
-                                    style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
-                                    <span className="text-[11px] font-extrabold tracking-wide"
-                                        style={{ background: 'linear-gradient(90deg, #34d399, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                        AI POWERED
-                                    </span>
-                                </div>
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide"
+                                    style={{ background: 'linear-gradient(90deg, #34d399, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                    AI Powered
+                                </span>
                             </div>
                         </div>
 
-                        {/* Sparkle suggestions trigger */}
-                        <div className="absolute top-3 right-4" ref={suggestionsRef}>
-                            <button
-                                onClick={handleToggleSuggestions}
-                                className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${showSuggestions
-                                        ? (isDark ? 'bg-purple-500/30 text-purple-400' : 'bg-indigo-100 text-indigo-600')
-                                        : (isDark ? 'bg-white/5 text-white/30' : 'bg-gray-100 text-gray-400')
-                                    }`}
-                                title="Smart suggestions"
-                                aria-label="Smart meal suggestions"
-                            >
-                                <Sparkles size={16} />
-                            </button>
-                            {showSuggestions && (
-                                <div className={`absolute top-10 right-0 w-56 p-3 rounded-2xl shadow-xl border z-20 animate-fade-in ${isDark ? 'bg-[#1C1C1E] border-white/10' : 'bg-white border-gray-200'}`}>
-                                    <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
-                                        Try for {activeMeal}
-                                    </p>
-                                    <div className="space-y-1">
-                                        {currentSuggestions.map((sug, i) => (
+                        <div className="px-4 pt-4 pb-3">
+                            {/* Food name section */}
+                            <div className="mb-3">
+                                <label className={`text-[11px] font-bold uppercase tracking-wider mb-2 block ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                                    {type === 'exercise' ? 'What did you do?' : 'What did you eat?'}
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        className={`w-full pr-10 pl-0 py-2.5 bg-transparent text-[15px] font-semibold outline-none border-b-2 transition-colors ${isDark ? 'border-white/10 focus:border-emerald-400/50 placeholder:text-white/20' : 'border-gray-200 focus:border-emerald-400 placeholder:text-gray-400'} ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
+                                        placeholder={type === 'exercise' ? "e.g. 30 mins jogging..." : "e.g. Grilled chicken..."}
+                                        value={query}
+                                        onChange={handleQueryChange}
+                                        onFocus={() => setInputFocused(true)}
+                                        onBlur={() => setInputFocused(false)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAISubmit();
+                                            }
+                                        }}
+                                        disabled={isAnalyzing}
+                                        maxLength={200}
+                                        aria-label="Food name input"
+                                    />
+                                    <Edit2 size={16} className={`absolute right-0 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/20' : 'text-gray-300'}`} />
+                                </div>
+                            </div>
+
+                            {/* Suggestion pills */}
+                            {type !== 'exercise' && foodPills.length > 0 && (
+                                <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-3 -mx-1 px-1">
+                                    {foodPills.map((pill, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setQuery(pill)}
+                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all ${query === pill
+                                                ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')
+                                                : (isDark ? 'bg-white/[0.05] text-white/50 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200')
+                                            }`}
+                                        >
+                                            {pill}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Divider */}
+                            <div className={`h-px my-3 ${isDark ? 'bg-white/[0.06]' : 'bg-gray-100'}`} />
+
+                            {/* Portion size section */}
+                            {type !== 'exercise' && (
+                                <div className="mb-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>Portion size</span>
+                                        <div className="flex items-baseline gap-0.5">
+                                            <span className={`text-2xl font-black ${styles.textMain}`}>{foodWeight || '100'}</span>
+                                            <span className={`text-[11px] font-semibold ${isDark ? 'text-white/30' : 'text-gray-400'}`}>g</span>
+                                        </div>
+                                    </div>
+                                    {/* Slider */}
+                                    <div className="mb-3">
+                                        <input
+                                            type="range"
+                                            min="50"
+                                            max="500"
+                                            step="25"
+                                            value={foodWeight || '100'}
+                                            onChange={(e) => setFoodWeight(e.target.value)}
+                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                                            style={{
+                                                background: `linear-gradient(to right, ${isDark ? '#34d399' : '#10b981'} ${((parseInt(foodWeight) || 100) - 50) / 450 * 100}%, ${isDark ? '#2C2C2E' : '#e5e7eb'} ${((parseInt(foodWeight) || 100) - 50) / 450 * 100}%)`,
+                                                WebkitAppearance: 'none'
+                                            }}
+                                            aria-label="Portion in grams"
+                                        />
+                                        <div className="flex justify-between mt-1">
+                                            <span className={`text-[9px] ${isDark ? 'text-white/20' : 'text-gray-300'}`}>50g</span>
+                                            <span className={`text-[9px] ${isDark ? 'text-white/20' : 'text-gray-300'}`}>500g</span>
+                                        </div>
+                                    </div>
+                                    {/* Chips */}
+                                    <div className="flex gap-2">
+                                        {[100, 150, 200, 250].map(w => (
                                             <button
-                                                key={i}
-                                                onClick={() => { setQuery(sug); setShowSuggestions(false); }}
-                                                className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors ${isDark ? 'text-white hover:bg-white/10' : 'text-gray-800 hover:bg-gray-50'}`}
+                                                key={w}
+                                                onClick={() => setFoodWeight(String(w))}
+                                                className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all ${(parseInt(foodWeight) || 100) === w
+                                                    ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')
+                                                    : (isDark ? 'bg-white/[0.04] text-white/30 border border-white/[0.06]' : 'bg-gray-50 text-gray-400 border border-gray-200')
+                                                }`}
                                             >
-                                                {sug}
+                                                {w}g
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                             )}
+
+                            {/* Ready row */}
+                            <div className={`flex items-center gap-2 mt-3 px-3 py-2 rounded-xl ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#34d399' : '#10b981'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span className={`text-[11px] font-semibold ${isDark ? 'text-emerald-400/70' : 'text-emerald-600'}`}>
+                                    {query.trim() ? 'Ready to analyze' : 'Enter food name'}
+                                </span>
+                                {query.trim() && (
+                                    <span className={`text-[10px] ml-auto ${isDark ? 'text-white/25' : 'text-gray-400'}`}>
+                                        {query.split(/\s+/).filter(Boolean).length} words
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Textarea */}
-                        <div className="relative">
-                            <textarea
-                                ref={inputRef}
-                                className={`w-full bg-transparent text-[15px] outline-none resize-none ${isDark ? 'placeholder:text-white/20' : 'placeholder:text-gray-400'} ${styles.textMain} ${isAnalyzing ? 'opacity-50' : ''}`}
-                                rows={3}
-                                placeholder={type === 'exercise' ? "e.g. 30 mins jogging at moderate pace..." : placeholder}
-                                value={query}
-                                onChange={handleQueryChange}
-                                onFocus={() => setInputFocused(true)}
-                                onBlur={() => setInputFocused(false)}
-                                onKeyDown={(e) => {
-                                    if ((e.key === 'Enter' && !e.shiftKey) || (e.ctrlKey && e.key === 'Enter')) {
-                                        e.preventDefault();
-                                        handleAISubmit();
-                                    }
+                        {/* Actions */}
+                        <div className={`flex gap-2 px-4 pb-4 pt-1`}>
+                            <button
+                                onClick={onClose}
+                                className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-xs font-bold transition-all ${isDark ? 'bg-white/[0.05] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}`}
+                            >
+                                <X size={13} strokeWidth={2.5} />
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAISubmit}
+                                disabled={!query.trim() || isAnalyzing}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-extrabold text-xs text-black transition-all"
+                                style={{
+                                    background: 'linear-gradient(135deg, #34d399, #22d3ee)',
+                                    opacity: !query.trim() || isAnalyzing ? 0.4 : 1,
+                                    boxShadow: query.trim() && !isAnalyzing ? '0 4px 24px rgba(52,211,153,0.3)' : 'none',
+                                    cursor: !query.trim() || isAnalyzing ? 'not-allowed' : 'pointer'
                                 }}
-                                disabled={isAnalyzing}
-                                maxLength={200}
-                                aria-label="Meal description input"
-                            />
-                            {query.length >= 150 && (
-                                <span className={`absolute bottom-0 right-0 text-xs font-medium ${query.length >= 190 ? 'text-red-400' : 'text-amber-400'}`}>
-                                    {query.length}/200
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Char hint */}
-                        <p className={`text-[11px] mt-1 min-h-[16px] transition-colors ${query.length > 2 ? 'text-emerald-400/60' : (isDark ? 'text-white/20' : 'text-gray-400')}`}>
-                            {query.length > 2 ? `✓ Ready to analyze · ${query.split(' ').length} words` : (query.length > 0 ? 'Keep typing...' : '')}
-                        </p>
-
-                        {/* Voice indicator */}
-                        <VoiceRecordingIndicator isListening={isVoiceListening} isProcessing={isVoiceProcessing} theme={theme} />
-
-                        {/* Divider */}
-                        <div className="h-px my-3" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)' }} />
-
-                        {/* Input modes */}
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleVoiceInput}
-                                disabled={isAnalyzing}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isVoiceListening
-                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                        : (isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200')
-                                    }`}
                             >
-                                <Mic size={14} /> Voice Input
-                            </button>
-                            {type !== 'exercise' && (
-                                <div className="relative">
-                                    <button
-                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${showScanPulse ? 'animate-pulse' : ''} ${isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}`}
-                                        title="Scan a food label or barcode"
-                                    >
-                                        <ScanLine size={14} /> Scan Barcode
-                                    </button>
-                                    {showScanPulse && (
-                                        <div className={`absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-30 shadow-lg ${isDark ? 'bg-[#1C1C1E] text-white border border-white/10' : 'bg-black text-white'}`}>
-                                            Scan a food label
-                                            <div className={`absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${isDark ? 'bg-[#1C1C1E]' : 'bg-black'}`} />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            <button
-                                onClick={() => setShowSearchOverlay(true)}
-                                className={`ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isDark ? 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08]' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}`}
-                            >
-                                <Search size={14} /> Search
+                                {isAnalyzing ? (
+                                    <>
+                                        <Loader2 size={15} className="animate-spin" />
+                                        Analyzing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                        </svg>
+                                        Analyze with AI
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
-
-                    {/* ════ ANALYZE BUTTON ════ */}
-                    <div className="mb-5">
-                        <button
-                            onClick={handleAISubmit}
-                            disabled={!query.trim() || isAnalyzing}
-                            className="w-full py-4 rounded-2xl font-extrabold text-sm transition-all relative overflow-hidden"
-                            style={{
-                                background: 'linear-gradient(135deg, #34d399, #22d3ee)',
-                                color: '#000',
-                                opacity: !query.trim() || isAnalyzing ? 0.4 : 1,
-                                boxShadow: query.trim() && !isAnalyzing ? '0 4px 24px rgba(52,211,153,0.3)' : 'none',
-                                cursor: !query.trim() || isAnalyzing ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {isAnalyzing ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <Loader2 size={18} className="animate-spin" /> Analyzing your meal...
-                                </span>
-                            ) : (
-                                <>✦ &nbsp;Analyze with AI</>
-                            )}
-                        </button>
-                        <p className={`text-[11px] text-center mt-2.5 ${isDark ? 'text-white/18' : 'text-gray-400'}`}>
-                            Ctrl + Enter to analyze quickly
-                        </p>
-                    </div>
-
-                    {/* First-time tooltip */}
-                    {showTooltip && (
-                        <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 animate-fade-in ${isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-indigo-100 text-indigo-700'}`}>
-                            <Sparkles size={16} />
-                            <span className="text-sm font-medium">Describe your meal in plain language ✨</span>
-                        </div>
-                    )}
 
                     {/* ════ ERROR MESSAGE ════ */}
                     {error && (
@@ -1269,52 +1113,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                         </div>
                     )}
 
-                    {/* ════ FAVORITES ════ */}
-                    {type !== 'exercise' && (
-                        <div className="mb-7">
-                            <p className={`text-sm font-bold mb-3.5 ${styles.textMain}`}>⭐ Favorites</p>
-                            {frequentFoods.length === 0 && !loadingFrequent && (
-                                <div className="rounded-3xl p-9 text-center"
-                                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                                    <div className="text-[40px] mb-3 grayscale opacity-50">🌟</div>
-                                    <p className={`text-[15px] font-bold ${isDark ? 'text-white/35' : 'text-gray-400'}`}>No favorites yet</p>
-                                    <p className={`text-xs mt-1.5 leading-relaxed ${isDark ? 'text-white/18' : 'text-gray-400'}`}>
-                                        Foods you logged in the last 15 days<br />will automatically appear here
-                                    </p>
-                                    <button
-                                        onClick={() => setShowSearchOverlay(true)}
-                                        className="mt-4 px-5 py-2 rounded-full text-xs font-bold cursor-pointer transition-all"
-                                        style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399' }}
-                                    >
-                                        Browse food database →
-                                    </button>
-                                </div>
-                            )}
-                            {frequentFoods.length > 0 && (
-                                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                                    {frequentFoods.map((item, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => setFavoriteAdjustItem(item)}
-                                            className={`flex-shrink-0 p-3.5 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left ${cardBg} ${styles.border}`}
-                                            style={{ minWidth: '152px' }}
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className="text-[28px]">{item.icon || '🍽️'}</span>
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                                    ⚖
-                                                </div>
-                                            </div>
-                                            <p className={`text-[13px] font-bold truncate ${styles.textMain}`}>{item.name}</p>
-                                            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{item.portion}</p>
-                                            <p className="text-[13px] font-extrabold text-orange-400 mt-1">{item.calories} kcal</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     {/* ════ QUICK ADD / RECENT ════ */}
                     {type !== 'exercise' && (
                         <div className="mb-6">
@@ -1459,67 +1257,6 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
                                 </div>
                             </div>
                         )}
-                    </div>
-                </div>
-            )}
-
-            {/* ════ FAVORITE WEIGHT ADJUSTMENT ════ */}
-            {favoriteAdjustItem && (
-                <div className="fixed inset-0 z-[65] flex items-end justify-center px-4 pb-8 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFavoriteAdjustItem(null)} />
-                    <div className={`relative w-full max-w-sm rounded-[2rem] p-6 shadow-2xl border ${cardBg} ${styles.border}`}>
-                        <div className="flex justify-between items-start mb-5">
-                            <div>
-                                <p className={`text-lg font-bold ${styles.textMain}`}>{favoriteAdjustItem.name}</p>
-                                <p className={`text-xs ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Adjust portion before adding</p>
-                            </div>
-                            <button onClick={() => setFavoriteAdjustItem(null)} className={`p-2 rounded-full ${isDark ? 'bg-[#2C2C2E]' : 'bg-gray-100'}`}>
-                                <X size={16} className={styles.textSec} />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 mb-6">
-                            <div className={`p-4 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
-                                <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>Portion / Weight</p>
-                                <input
-                                    type="text"
-                                    value={favoriteAdjustItem.portion}
-                                    onChange={(e) => setFavoriteAdjustItem({ ...favoriteAdjustItem, portion: e.target.value })}
-                                    className={`w-full bg-transparent text-lg font-bold outline-none ${styles.textMain}`}
-                                    placeholder="e.g. 1 cup, 150g"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
-                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Protein</p>
-                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.protein}g</p>
-                                </div>
-                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Carbs</p>
-                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.carbs}g</p>
-                                </div>
-                                <div className={`p-3 rounded-2xl text-center ${isDark ? 'bg-orange-500/10' : 'bg-orange-50'}`}>
-                                    <p className={`text-xs font-bold uppercase ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>Fat</p>
-                                    <p className={`text-lg font-black ${styles.textMain}`}>{favoriteAdjustItem.fat}g</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                handleQuickAdd(favoriteAdjustItem);
-                                setFavoriteAdjustItem(null);
-                            }}
-                            className="w-full py-4 rounded-2xl font-extrabold text-sm transition-all"
-                            style={{
-                                background: 'linear-gradient(135deg, #34d399, #22d3ee)',
-                                color: '#000',
-                                boxShadow: '0 4px 24px rgba(52,211,153,0.3)'
-                            }}
-                        >
-                            + Add to {activeMeal}
-                        </button>
                     </div>
                 </div>
             )}

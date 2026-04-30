@@ -23,7 +23,6 @@ const WorkoutTrackingPage = lazy(() => import('./pages/WorkoutTrackingPage'));
 const WorkoutSessionDetailPage = lazy(() => import('./pages/WorkoutSessionDetailPage'));
 const Navigation = lazy(() => import('./components/Navigation'));
 const ConfirmModal = lazy(() => import('./components/ConfirmModal'));
-const EditDayModal = lazy(() => import('./components/Dashboard/EditDayModal'));
 const FoodDetailModal = lazy(() => import('./components/Dashboard/FoodItem').then(m => ({ default: m.FoodDetailModal })));
 const DailyDetailModal = lazy(() => import('./components/Dashboard/DailyDetailModal'));
 const DailyStatsPage = lazy(() => import('./pages/DailyStatsPage'));
@@ -97,7 +96,6 @@ function MainApp() {
     const [activeAddMeal, setActiveAddMeal] = useState('Snacks');
     const [addType, setAddType] = useState('food');
     const [editingFood, setEditingFood] = useState(null);
-    const [editingDay, setEditingDay] = useState(null);
     const [selectedFood, setSelectedFood] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
@@ -295,7 +293,6 @@ function MainApp() {
                             const idx = list.indexOf(theme);
                             setTheme(list[(idx + 1) % list.length]);
                         }}
-                        onDayClick={(day) => { setEditingDay(day); }}
                     />
                 )}
             </Suspense>
@@ -389,17 +386,6 @@ function MainApp() {
                         onConfirm={() => { showConfirm.onConfirm(); setShowConfirm(null); }} 
                         onCancel={() => setShowConfirm(null)} 
                         theme={theme} 
-                    />
-                )}
-            </Suspense>
-
-            <Suspense fallback={null}>
-                {editingDay && (
-                    <EditDayModal 
-                        dayData={editingDay} 
-                        theme={theme} 
-                        onClose={() => setEditingDay(null)} 
-                        onSave={updateDayTotals} 
                     />
                 )}
             </Suspense>
