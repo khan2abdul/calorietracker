@@ -197,10 +197,8 @@ const mealSuggestions = {
 
 // Confidence indicator component — only show warnings for genuinely low confidence
 const ConfidenceIndicator = ({ score, theme }) => {
-    if (score >= 0.75) {
+    if (score >= 0.5) {
         return null;
-    } else if (score >= 0.5) {
-        return <span className="flex items-center gap-1 text-xs text-amber-500 font-medium"><AlertCircle size={12} /> Approximate</span>;
     } else {
         return <span className="flex items-center gap-1 text-xs text-orange-500 font-medium"><HelpCircle size={12} /> Estimate only</span>;
     }
