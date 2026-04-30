@@ -400,26 +400,22 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
         }, 5000);
 
         let prompt = "";
+        const explicitWeight = foodWeight.trim();
+        const queryWeightMatch = query.match(/(\d+)\s*(gm|g|grams?|grms?)\b/i);
+        const detectedWeight = explicitWeight || (queryWeightMatch ? queryWeightMatch[1] : '');
+        if (!explicitWeight && detectedWeight) {
+            setFoodWeight(detectedWeight);
+        }
         if (type === 'exercise') {
             prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.9}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.85}].`;
         } else {
-            const explicitWeight = foodWeight.trim();
-            const queryWeightMatch = query.match(/(\d+)\s*(gm|g|grams?|grms?)\b/i);
-            const detectedWeight = explicitWeight || (queryWeightMatch ? queryWeightMatch[1] : '');
-            if (!explicitWeight && detectedWeight) {
-                setFoodWeight(detectedWeight);
-            }
-            const finalWeight = detectedWeight || '200';
-            prompt = `You are a nutrition database. Analyze this food: "${query}".
+            const finalWeight = detectedWeight || foodWeight.trim() || '200';
+            prompt = `Calculate exact nutrition for ${finalWeight}g of: "${query}".
 
-RULES:
-- Return EXACTLY ONE food item. No variations, no alternatives, no arrays.
-- Return nutrition values PER 100 GRAMS. This is a strict rule — always normalize to 100g.
-- Calculate calories, protein, carbs, fat precisely per 100g using USDA/Indian food composition data.
-- Be precise to one decimal place. No rounding to neat numbers.
+Return ONLY this JSON, nothing else:
+{"suggestions": [{"name": "Food Name", "weight": "${finalWeight}g", "calories": 130, "protein": 2.7, "carbs": 28.2, "fat": 0.3, "confidence": 0.95}], "alternatives": []}
 
-Return ONLY this JSON format, nothing else:
-{"suggestions": [{"name": "Food Name", "weight": "100g", "calories": 130, "protein": 2.7, "carbs": 28.2, "fat": 0.3, "confidence": 0.95}], "alternatives": []}`;
+IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for any other weight. Use standard per-100g nutrition data and multiply by ${finalWeight}/100.`;
         }
 
         try {
@@ -453,9 +449,10 @@ Return ONLY this JSON format, nothing else:
                 const items = parsed.suggestions || (Array.isArray(parsed) ? parsed : []);
                 const first = items[0];
                 if (first) {
-                    // Always scale from per-100g baseline to user's weight
-                    const userWeight = parseInt(foodWeight) || 200;
-                    const scale = userWeight / 100;
+                    const userWeight = parseInt(foodWeight) || parseInt(detectedWeight) || 200;
+                    // If AI returned a different weight than requested, scale to user's weight
+                    const aiWeight = parseInt(first.weight) || userWeight;
+                    const scale = userWeight / aiWeight;
                     result = {
                         suggestions: [{
                             ...first,
