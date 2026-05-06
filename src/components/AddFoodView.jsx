@@ -306,9 +306,9 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
     const slowConnectionTimerRef = useRef(null);
 
     const styles = THEMES[theme];
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     useEffect(() => {
-        console.log('[AddFoodView] AI API Key available:', !!apiKey, 'Source:', import.meta.env.VITE_GEMINI_API_KEY ? 'VITE_GEMINI_API_KEY' : (import.meta.env.VITE_FIREBASE_API_KEY ? 'VITE_FIREBASE_API_KEY (fallback)' : 'NONE'));
+        console.log('[AddFoodView] AI API Key available:', !!apiKey);
     }, [apiKey]);
 
     // Get random placeholder
@@ -405,15 +405,19 @@ const AddFoodView = ({ meal, type, user, userStats, onClose, onAdd, theme, initi
             setFoodWeight(detectedWeight);
         }
         if (type === 'exercise') {
-            prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON array with 2-3 variations. Example: [{"name": "Running (moderate)", "duration": "30 mins", "calories": 300, "confidence": 0.9}, {"name": "Running (intense)", "duration": "30 mins", "calories": 450, "confidence": 0.85}].`;
+            prompt = `Estimate calories burned for this activity: "${query}". User Stats: Age ${userStats.age}, Weight ${userStats.weight}kg, Height ${userStats.height}cm. Return ONLY a valid JSON object with this structure: {"suggestions": [{"name": "<activity name>", "duration": "<duration>", "calories": <number>, "confidence": <number>}], "alternatives": []}. Use real values, not placeholders.`;
         } else {
             const finalWeight = detectedWeight || foodWeight || '200';
             prompt = `Calculate exact nutrition for ${finalWeight}g of: "${query}".
 
-Return ONLY this JSON, nothing else:
-{"suggestions": [{"name": "Food Name", "weight": "${finalWeight}g", "calories": 130, "protein": 2.7, "carbs": 28.2, "fat": 0.3, "confidence": 0.95}], "alternatives": []}
+Return ONLY a valid JSON object with this exact structure. Use the real food name and real calculated numbers. Do NOT use placeholder text like "Food Name" or dummy numbers like 130.
+{"suggestions": [{"name": "${query.trim()}", "weight": "${finalWeight}g", "calories": <number>, "protein": <number>, "carbs": <number>, "fat": <number>, "confidence": <number>}], "alternatives": []}
 
-IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for any other weight. Use standard per-100g nutrition data and multiply by ${finalWeight}/100.`;
+Rules:
+- "name" MUST be exactly "${query.trim()}" — do NOT modify or translate it.
+- "weight" MUST be exactly "${finalWeight}g" — do NOT change it.
+- Calculate nutrition for exactly ${finalWeight}g using standard per-100g data multiplied by ${finalWeight}/100.
+- Return ONLY the JSON object, no markdown, no extra text.`;
         }
 
         try {
@@ -434,9 +438,23 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
             }
             const text = data.candidates[0].content.parts[0].text;
             console.log('[AddFoodView] AI raw text length:', text.length);
-            const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Robust JSON extraction: try to find JSON object/array inside possible markdown or extra text
+            let jsonString = text;
+            const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+            if (jsonMatch) {
+                jsonString = jsonMatch[0];
+            } else {
+                jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            }
             const parsed = JSON.parse(jsonString);
             console.log('[AddFoodView] AI parsed successfully. Suggestions count:', parsed.suggestions?.length || parsed.length || 0);
+
+            // Guard against model returning literal placeholders
+            const isPlaceholder = (obj) =>
+                !obj ||
+                (typeof obj.name === 'string' && obj.name.toLowerCase().includes('food name')) ||
+                (typeof obj.name === 'string' && obj.name.includes('<')) ||
+                (obj.calories === 130 && obj.protein === 2.7 && obj.carbs === 28.2 && obj.fat === 0.3);
 
             // Always keep only the first suggestion
             let result;
@@ -446,7 +464,7 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
             } else {
                 const items = parsed.suggestions || (Array.isArray(parsed) ? parsed : []);
                 const first = items[0];
-                if (first) {
+                if (first && !isPlaceholder(first)) {
                     const userWeight = parseInt(foodWeight) || parseInt(detectedWeight) || 200;
                     const aiWeight = parseInt(first.weight) || userWeight;
                     const scale = userWeight / aiWeight;
@@ -454,7 +472,8 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                     result = {
                         suggestions: [{
                             ...first,
-                            weight: `${userWeight}g`,
+                            name: query.trim(), // Preserve user's exact food name
+                            weight: `${userWeight}g`, // Preserve exact user-specified weight
                             calories: Math.round(first.calories * scale),
                             protein: Math.round(first.protein * scale * 10) / 10,
                             carbs: Math.round(first.carbs * scale * 10) / 10,
@@ -463,7 +482,7 @@ IMPORTANT: All values must be calculated EXACTLY for ${finalWeight}g. Not for an
                         alternatives: []
                     };
                 } else {
-                    result = { suggestions: [], alternatives: [] };
+                    throw new Error('AI returned placeholder values instead of real nutrition data.');
                 }
             }
             setAiResult(result);
